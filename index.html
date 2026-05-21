@@ -1042,7 +1042,13 @@
 // ═══════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════
-let SHEET_URL       = localStorage.getItem('vdc_sheet_url') || '';
+const _DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzpSQGc2uSaByg3KrT-6WWav95Ii1mca7mVqZ1trAaARQd6AeR0viMor1mTbCCrpzOMeg/exec';
+// Pré-configuration automatique au premier chargement
+if (!localStorage.getItem('vdc_sheet_url')) {
+  localStorage.setItem('vdc_sheet_url', _DEFAULT_SHEET_URL);
+  localStorage.setItem('vdc_sheet_url_ts', Date.now().toString());
+}
+let SHEET_URL = localStorage.getItem('vdc_sheet_url') || _DEFAULT_SHEET_URL;
 let currentRole     = localStorage.getItem('vdc_last_role') || 'superviseur';
 let currentUser     = '';
 let tickets         = [];

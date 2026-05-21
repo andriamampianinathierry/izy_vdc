@@ -1,0 +1,2364 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IZY VDC — Outil Centralisé</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #f0f2f5;
+    --surface:  #e4e7ec;
+    --card:     #ffffff;
+    --border:   #d0d5dd;
+    --accent:   #0099cc;
+    --accent2:  #e63152;
+    --green:    #00a86b;
+    --yellow:   #d4900a;
+    --muted:    #6b7a99;
+    --text:     #1a1f2e;
+    --text-dim: #4a5568;
+    /* Admin = rouge vif */
+    --admin:        #e63152;
+    --admin-bg:     rgba(230,49,82,.08);
+    --admin-border: rgba(230,49,82,.3);
+    /* Superviseur = violet */
+    --sup:          #7c3aed;
+    --sup-bg:       rgba(124,58,237,.08);
+    --sup-border:   rgba(124,58,237,.3);
+    /* Utilisateur = bleu */
+    --user:         #0099cc;
+    --user-bg:      rgba(0,153,204,.08);
+    --user-border:  rgba(0,153,204,.3);
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+    --radius:   6px;
+    --shadow:   0 4px 24px rgba(0,0,0,.08);
+    --role-color: var(--sup);
+    --role-bg:    var(--sup-bg);
+    --role-border:var(--sup-border);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: .4;
+  }
+
+  /* ─── LOGIN OVERLAY ─── */
+  #login-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .login-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 44px 52px;
+    width: 100%; max-width: 460px;
+    box-shadow: 0 12px 60px rgba(0,0,0,.14);
+    position: relative; overflow: hidden;
+    animation: slideUp .4s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+  .login-box::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, var(--admin), var(--sup), var(--user));
+  }
+  .login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .login-badge {
+    background: linear-gradient(135deg, var(--sup), var(--accent));
+    color: #fff;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+    padding: 5px 12px; border-radius: 5px; letter-spacing: .05em;
+  }
+  .login-title { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text); }
+  .login-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; padding-top: 4px; }
+
+  /* Role selector */
+  .role-selector {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    margin-bottom: 20px;
+  }
+  .role-btn {
+    padding: 10px 8px; border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    cursor: pointer; transition: all .2s; text-align: center;
+    color: var(--muted);
+  }
+  .role-btn .role-icon { font-size: 18px; display: block; margin-bottom: 4px; }
+  .role-btn.active-admin  { border-color: var(--admin);  background: var(--admin-bg);  color: var(--admin);  }
+  .role-btn.active-sup    { border-color: var(--sup);    background: var(--sup-bg);    color: var(--sup);    }
+  .role-btn.active-user   { border-color: var(--user);   background: var(--user-bg);   color: var(--user);   }
+  .role-btn:hover         { border-color: var(--sup); color: var(--sup); }
+
+  .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .login-field label {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .12em;
+  }
+  .login-field input, .login-field select {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font-sans); font-size: 13px;
+    padding: 12px 14px; width: 100%;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .login-field input[type="password"] { letter-spacing: .2em; }
+  .login-field input:focus, .login-field select:focus { outline: none; border-color: var(--sup); box-shadow: 0 0 0 3px rgba(124,58,237,.12); }
+  .login-error {
+    display: none;
+    background: rgba(230,49,82,.08); border: 1px solid rgba(230,49,82,.25);
+    border-radius: var(--radius); padding: 10px 14px;
+    font-size: 12px; color: var(--accent2); margin-bottom: 16px;
+    font-family: var(--font-mono);
+  }
+  .login-error.visible { display: block; }
+  .btn-login {
+    width: 100%; padding: 14px; border: none; border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--sup), #6d28d9);
+    color: #fff;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+    transition: all .2s; margin-top: 8px;
+    box-shadow: 0 4px 20px rgba(124,58,237,.3);
+  }
+  .btn-login:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(124,58,237,.45); }
+  .btn-login.admin-btn  { background: linear-gradient(135deg, var(--admin), #c01040); box-shadow: 0 4px 20px rgba(230,49,82,.3); }
+  .btn-login.user-btn   { background: linear-gradient(135deg, var(--user), #007aaa); box-shadow: 0 4px 20px rgba(0,153,204,.3); }
+  .login-hint { font-size: 11px; color: var(--muted); margin-top: 16px; text-align: center; font-family: var(--font-mono); }
+  .login-loading {
+    display: none; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--sup);
+    margin-top: 12px; justify-content: center;
+  }
+  .login-loading.visible { display: flex; }
+  .login-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(124,58,237,.2);
+    border-top-color: var(--sup);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── HEADER ─── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 58px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(8px);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-badge {
+    background: linear-gradient(135deg, var(--sup), var(--accent));
+    color: #fff; font-family: var(--font-mono);
+    font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 4px; letter-spacing: .05em;
+  }
+  .logo-title { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: .03em; }
+  .role-badge {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px; letter-spacing: .1em; text-transform: uppercase;
+    background: var(--role-bg); color: var(--role-color); border: 1px solid var(--role-border);
+  }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .user-info { display: flex; align-items: center; gap: 8px; }
+  .user-name { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); font-weight: 600; }
+  .btn-logout {
+    font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+    background: var(--card); border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 20px; cursor: pointer; transition: all .18s; letter-spacing: .05em;
+  }
+  .btn-logout:hover { border-color: var(--accent2); color: var(--accent2); }
+  .live-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .sync-status {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    padding: 5px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    transition: all .3s;
+  }
+  .sync-status.syncing { border-color: var(--accent); color: var(--accent); }
+  .sync-status.ok      { border-color: var(--green); color: var(--green); }
+  .sync-status.error   { border-color: var(--accent2); color: var(--accent2); }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .sync-status.syncing .sync-dot { animation: pulse .8s infinite; }
+  .live-clock { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+  /* ─── GLOBAL DATE FILTER BAR ─── */
+  .global-date-bar {
+    background: linear-gradient(135deg, var(--sup-bg), rgba(0,153,204,.06));
+    border-bottom: 1px solid var(--sup-border);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    position: sticky; top: 58px; z-index: 90;
+    backdrop-filter: blur(8px);
+  }
+  .global-date-label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--sup); text-transform: uppercase; letter-spacing: .12em; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .global-date-inputs { display: flex; align-items: center; gap: 8px; }
+  .global-date-inputs input[type="date"] {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font-mono); font-size: 12px; padding: 8px 12px; cursor: pointer; transition: border-color .2s;
+  }
+  .global-date-inputs input[type="date"]:focus { outline: none; border-color: var(--sup); }
+  .date-sep { color: var(--muted); font-family: var(--font-mono); font-size: 14px; }
+  .btn-filter-apply { padding: 8px 18px; border: none; border-radius: var(--radius); background: var(--sup); color: #fff; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .18s; box-shadow: 0 2px 12px rgba(124,58,237,.25); }
+  .btn-filter-apply:hover { background: #6d28d9; transform: translateY(-1px); }
+  .btn-filter-reset { padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--muted); font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; cursor: pointer; transition: all .18s; }
+  .btn-filter-reset:hover { border-color: var(--accent2); color: var(--accent2); }
+  .filter-active-badge { display: none; background: var(--sup-bg); color: var(--sup); border: 1px solid var(--sup-border); border-radius: 20px; padding: 2px 10px; font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .filter-active-badge.visible { display: inline-block; }
+  .btn-sync-now { margin-left: auto; padding: 8px 16px; border: 1px solid rgba(0,153,204,.3); border-radius: var(--radius); background: rgba(0,153,204,.06); color: var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; cursor: pointer; transition: all .18s; display: flex; align-items: center; gap: 6px; }
+  .btn-sync-now:hover { border-color: var(--accent); background: rgba(0,153,204,.12); }
+  .btn-delete-history { padding: 6px 14px; border: 1px solid rgba(230,49,82,.3); border-radius: var(--radius); background: rgba(230,49,82,.06); color: var(--accent2); font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: .06em; cursor: pointer; transition: all .18s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .btn-delete-history:hover { border-color: var(--accent2); background: rgba(230,49,82,.14); }
+  .field-required-error { border-color: var(--accent2) !important; box-shadow: 0 0 0 2px rgba(230,49,82,.18) !important; animation: shake .3s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+
+  /* ─── MAIN ─── */
+  main { max-width: 1500px; margin: 0 auto; padding: 0 24px 48px; position: relative; z-index: 1; }
+  .sections { padding-top: 24px; display: flex; flex-direction: column; gap: 28px; }
+
+  /* ─── SECTION HEADERS ─── */
+  .section-label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--role-color, var(--sup)); text-transform: uppercase; letter-spacing: .14em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .toggle-btn { font-family: var(--font-mono); font-size: 10px; color: var(--muted); background: var(--card); border: 1px solid var(--border); padding: 4px 12px; border-radius: 20px; cursor: pointer; transition: all .18s; letter-spacing: .04em; white-space: nowrap; }
+  .toggle-btn:hover { border-color: var(--sup); color: var(--sup); }
+
+  /* ─── CARDS ─── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--sup), transparent); }
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .card-body { padding: 20px; }
+
+  /* ─── STAT PILLS ─── */
+  .stat-pills { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat-pill { flex: 1; min-width: 130px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; transition: border-color .2s; }
+  .stat-pill:hover { border-color: var(--sup); }
+  .stat-val { font-family: var(--font-mono); font-size: 30px; font-weight: 700; line-height: 1; color: var(--sup); }
+  .stat-lbl { font-family: var(--font-mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+
+  /* ─── QUEUE STATS ─── */
+  .queue-stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .queue-stat { flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; display: flex; flex-direction: column; gap: 4px; transition: border-color .2s; }
+  .queue-stat:hover { border-color: var(--sup); }
+  .queue-stat-val { font-family: var(--font-mono); font-size: 28px; font-weight: 700; line-height: 1; }
+  .queue-stat-val.blue { color: var(--accent); } .queue-stat-val.orange { color: var(--yellow); } .queue-stat-val.red { color: var(--accent2); } .queue-stat-val.green { color: var(--green); }
+  .queue-stat-lbl { font-family: var(--font-mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+
+  /* ─── AGENTS IN PROGRESS ─── */
+  .agents-in-progress { display: flex; flex-direction: column; gap: 6px; }
+  .agent-row { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; gap: 12px; flex-wrap: wrap; }
+  .agent-row-name { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text); }
+  .agent-row-ticket { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+  .agent-row-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .badge-locked { font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: rgba(230,49,82,.1); color: var(--accent2); border: 1px solid rgba(230,49,82,.25); letter-spacing: .06em; }
+  .badge-available { font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: rgba(0,168,107,.1); color: var(--green); border: 1px solid rgba(0,168,107,.25); letter-spacing: .06em; }
+  .badge-done { font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: rgba(0,153,204,.1); color: var(--accent); border: 1px solid rgba(0,153,204,.25); letter-spacing: .06em; }
+
+  /* ─── TABLES ─── */
+  .table-wrap { overflow: auto; max-height: 320px; border-radius: 0 0 8px 8px; }
+  .history-table-wrap { overflow: auto; border-radius: 0 0 8px 8px; max-height: 480px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface); color: var(--muted); font-family: var(--font-mono); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: 10px 14px; text-align: left; position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(124,58,237,.03); }
+  .id-cell { font-family: var(--font-mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+
+  /* ─── AGENT STATS GRID ─── */
+  .agent-stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .agent-stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; transition: border-color .2s, box-shadow .2s; position: relative; overflow: hidden; }
+  .agent-stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, var(--sup), var(--accent)); }
+  .agent-stat-card:hover { border-color: var(--sup); box-shadow: 0 4px 20px rgba(124,58,237,.1); }
+  .agent-stat-name { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 10px; padding-left: 8px; }
+  .agent-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-radius: 4px; }
+  .agent-stat-row:hover { background: var(--surface); }
+  .agent-stat-row .lbl { font-size: 11px; color: var(--muted); }
+  .agent-stat-row .val { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text); }
+  .agent-stat-row .val.green { color: var(--green); } .agent-stat-row .val.red { color: var(--accent2); } .agent-stat-row .val.yellow { color: var(--yellow); }
+
+  /* ─── AGENT TREATMENT FORM ─── */
+  @keyframes vdcSpin { to { transform:rotate(360deg); } }
+  @keyframes vdcTicketAppear { from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);} }
+  @keyframes vdcRowFlash { from{background:rgba(0,153,204,.15);}to{background:transparent;} }
+  .agent-radio-pill {
+    padding:8px 16px;border:1.5px solid var(--border);border-radius:4px;
+    font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--muted);
+    background:var(--surface);transition:all .18s;cursor:pointer;
+    letter-spacing:.04em;user-select:none;display:block;
+  }
+  input[type="radio"]:checked + .agent-radio-pill {
+    border-color:var(--user);color:var(--user);background:rgba(0,153,204,.08);
+    box-shadow:0 0 0 2px rgba(0,153,204,.15);
+  }
+  input[name="agent-statut"]:checked + .agent-pill-valide {
+    border-color:var(--green);color:var(--green);background:rgba(0,168,107,.08);
+    box-shadow:0 0 0 2px rgba(0,168,107,.15);
+  }
+  input[name="agent-statut"]:checked + .agent-pill-rejete {
+    border-color:var(--accent2);color:var(--accent2);background:rgba(230,49,82,.08);
+    box-shadow:0 0 0 2px rgba(230,49,82,.15);
+  }
+  #agent-btn-fin:not(:disabled) { opacity:1;cursor:pointer; }
+  #agent-btn-fin:not(:disabled):hover { background:#ff2d55;box-shadow:0 0 28px rgba(255,77,109,.5);transform:translateY(-1px); }
+  tr.agent-new-row { animation:vdcRowFlash 1.5s ease-out; }
+  @media(max-width:900px){#agent-treatment-layout{grid-template-columns:1fr!important;}}
+
+  /* ─── AGENT FILTER BAR ─── */
+  .agent-filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--border); background: rgba(124,58,237,.03); }
+  .agent-filter-label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .agent-filter-select { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 6px 30px 6px 12px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a99' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; cursor: pointer; }
+  .agent-filter-select:focus { outline: none; border-color: var(--sup); }
+  .btn-export-csv { margin-left: auto; padding: 6px 14px; border: none; border-radius: var(--radius); background: var(--green); color: #fff; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; transition: all .18s; }
+  .btn-export-csv:hover { opacity: .85; transform: translateY(-1px); }
+
+  /* ─── USER VIEW SPECIFIC ─── */
+  .user-ticket-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 24px; margin-bottom: 12px;
+    box-shadow: var(--shadow); position: relative; overflow: hidden;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .user-ticket-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--user); }
+  .user-ticket-card:hover { border-color: var(--user); box-shadow: 0 4px 20px rgba(0,153,204,.1); }
+  .ticket-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .ticket-id { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--accent); }
+  .ticket-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px 16px; }
+  .ticket-meta-row { display: flex; flex-direction: column; gap: 1px; }
+  .ticket-meta-lbl { font-family: var(--font-mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .ticket-meta-val { font-size: 12px; font-weight: 600; color: var(--text); }
+
+  /* ─── ADMIN PANEL ─── */
+  .admin-section-card { background: var(--card); border: 1px solid var(--admin-border); border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .admin-section-card .section-label { color: var(--admin); }
+  .info-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .info-badge { font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: var(--admin-bg); color: var(--admin); border: 1px solid var(--admin-border); }
+  .agents-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  .agent-list-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .agent-list-item::before { content: '👤'; font-size: 14px; }
+
+  /* ─── CHART ─── */
+  .chart-container { padding: 20px; overflow-x: auto; }
+
+  /* ─── CONFIG SECTION ─── */
+  .config-section-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-top: 20px; box-shadow: var(--shadow); }
+  .config-url-input { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 10px 14px; width: 100%; transition: border-color .2s; }
+  .config-url-input:focus { outline: none; border-color: var(--sup); }
+  .btn-save-config { padding: 10px 20px; border: none; border-radius: var(--radius); background: var(--sup); color: #fff; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .08em; cursor: pointer; transition: all .18s; white-space: nowrap; }
+  .btn-save-config:hover { background: #6d28d9; }
+
+  /* ─── LOADING OVERLAY ─── */
+  .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(240,242,245,.7); z-index: 500; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .loading-overlay.visible { display: flex; }
+  .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--sup); border-radius: 50%; animation: spin .8s linear infinite; }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state { padding: 32px; text-align: center; color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+  .empty-state .icon { font-size: 28px; margin-bottom: 8px; opacity: .5; }
+
+  /* ─── TOAST ─── */
+  #toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 9000; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--text); color: #fff; font-family: var(--font-mono); font-size: 12px; padding: 10px 18px; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,.18); animation: toastIn .3s ease; max-width: 360px; }
+  .toast.success { background: var(--green); } .toast.error { background: var(--accent2); } .toast.sup { background: var(--sup); } .toast.admin { background: var(--admin); } .toast.user { background: var(--user); }
+  @keyframes toastIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN OVERLAY ─── -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="login-badge">IZY</span>
+      <span class="login-title">Outil Centralisé VDC</span>
+    </div>
+    <p class="login-subtitle">Sélectionnez votre profil et connectez-vous.</p>
+
+    <!-- Sélecteur de rôle -->
+    <div class="role-selector">
+      <button class="role-btn" id="role-admin-btn" onclick="selectRole('admin')">
+        <span class="role-icon">🛡️</span>Admin
+      </button>
+      <button class="role-btn active-sup" id="role-sup-btn" onclick="selectRole('superviseur')">
+        <span class="role-icon">📊</span>Superviseur
+      </button>
+      <button class="role-btn" id="role-user-btn" onclick="selectRole('utilisateur')">
+        <span class="role-icon">👤</span>Utilisateur
+      </button>
+    </div>
+
+    <!-- URL Apps Script — champ masqué, URL gérée depuis le panneau Admin après connexion -->
+    <div class="login-field" id="login-url-field" style="display:none!important;">
+      <label>URL Apps Script (Google Sheets)</label>
+      <input type="text" id="login-sheet-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" style="font-size:11px;letter-spacing:0;">
+    </div>
+    <div id="login-url-divider" style="display:none!important;"></div>
+
+    <!-- Champ Nom — admin & superviseur -->
+    <div class="login-field" id="login-name-field">
+      <label id="login-name-label">Identifiant</label>
+      <input type="text" id="login-username" placeholder="Votre nom…" autocomplete="off">
+    </div>
+
+    <!-- Sélecteur agent — profil Utilisateur (comme IZY TOOL V4) -->
+    <div class="login-field" id="login-agent-field" style="display:none;">
+      <label>Sélectionner votre nom</label>
+      <select id="login-agent-select"
+              style="appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a99' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer;">
+        <option value="">— Sélectionner mon nom —</option>
+      </select>
+      <span id="login-hint-text" style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px;">Chargement des agents…</span>
+    </div>
+
+    <!-- Mot de passe — admin & superviseur uniquement -->
+    <div class="login-field" id="login-pwd-field">
+      <label>Mot de passe</label>
+      <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="off">
+    </div>
+
+    <div class="login-error" id="login-error">Identifiants incorrects.</div>
+
+    <button class="btn-login" id="btn-login-confirm" onclick="doLogin()">Accéder →</button>
+
+    <div class="login-loading" id="login-loading">
+      <div class="login-spinner"></div>
+      <span id="login-loading-text">Vérification en cours…</span>
+    </div>
+
+    <p class="login-hint" id="login-bottom-hint">URL et préférences sauvegardées localement.</p>
+  </div>
+</div>
+
+<!-- ─── LOADING OVERLAY ─── -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="logo">
+    <span class="logo-badge">IZY</span>
+    <span class="logo-title" id="header-title">Tableau de Bord VDC</span>
+  </div>
+  <div class="header-right">
+    <div class="sync-status" id="sync-status">
+      <span class="sync-dot"></span>
+      <span id="sync-text">Non connecté</span>
+    </div>
+    <span class="live-dot" title="En ligne"></span>
+    <span class="live-clock" id="live-clock">--:--:--</span>
+    <div class="user-info">
+      <span class="role-badge" id="role-badge-display">—</span>
+      <span class="user-name" id="user-name-display">—</span>
+      <button class="btn-logout" onclick="doLogout()">⏏ Quitter</button>
+    </div>
+  </div>
+</header>
+
+<!-- ─── GLOBAL DATE FILTER ─── -->
+<div class="global-date-bar" id="global-date-bar" style="display:none;">
+  <span class="global-date-label">🗓 Filtre global — Période</span>
+  <div class="global-date-inputs">
+    <input type="date" id="filter-start" title="Date de début">
+    <span class="date-sep">→</span>
+    <input type="date" id="filter-end" title="Date de fin">
+  </div>
+  <button class="btn-filter-apply" onclick="applyGlobalFilter()">FILTRER</button>
+  <button class="btn-filter-reset" onclick="resetGlobalFilter()">✕ Tout</button>
+  <span class="filter-active-badge" id="filter-badge">FILTRE ACTIF</span>
+  <button class="btn-sync-now" onclick="syncNow()">↻ Sync</button>
+  <button class="btn-delete-history" onclick="clearHistoryForRole()">🗑 Supprimer historique</button>
+</div>
+
+<div id="toast-wrap"></div>
+
+<!-- ═══ MAIN CONTENT ═══ -->
+<main id="main-content" style="display:none;">
+
+  <!-- ─────────────────────────────────────────── -->
+  <!--  VUE ADMIN                                  -->
+  <!-- ─────────────────────────────────────────── -->
+  <div id="view-admin" style="display:none;">
+    <div class="sections">
+
+      <!-- Infos accès -->
+      <div>
+        <div class="section-label" style="color:var(--admin);">🛡️ Panneau Administration</div>
+        <div class="admin-section-card">
+          <div class="section-label" style="color:var(--admin);">🔑 Accès configuré</div>
+          <div class="info-row">
+            <span class="info-badge">ADMIN</span>
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);">Accès complet — toutes les données</span>
+          </div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:8px;">
+            Structure Google Sheet détectée : onglet <strong>Config</strong> (A1/B1 → Admin, A2/B2 → Superviseur) · onglet <strong>Agents</strong> (colonne A)
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuration URL centralisée -->
+      <div>
+        <div class="section-label" style="color:var(--admin);">⚙️ Configuration URL — Synchronisation centralisée</div>
+        <div id="admin-no-url-banner" style="display:none;background:rgba(230,49,82,.08);border:1px solid var(--admin-border);border-radius:8px;padding:12px 16px;margin-bottom:12px;font-family:var(--font-mono);font-size:11px;color:var(--admin);line-height:1.7;">
+          ⚠ <strong>Aucune URL configurée.</strong> Collez votre URL Apps Script ci-dessous et cliquez sur "Enregistrer & Propager" pour activer l'outil.
+        </div>
+        <div class="admin-section-card" style="border-color:var(--admin-border);">
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.7;">
+            L'URL ci-dessous est la <strong style="color:var(--admin);">source unique de configuration</strong>. Toute modification est automatiquement propagée à tous les superviseurs et utilisateurs connectés sans intervention manuelle.
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="admin-url-field" placeholder="https://script.google.com/macros/s/…/exec"
+              style="flex:1;min-width:260px;background:var(--surface);border:1px solid var(--admin-border);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:10px 14px;transition:border-color .2s;"
+              onfocus="this.style.borderColor='var(--admin)'" onblur="this.style.borderColor='var(--admin-border)'">
+            <button onclick="adminSaveUrl()" style="padding:10px 20px;border:none;border-radius:var(--radius);background:var(--admin);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer;transition:all .18s;white-space:nowrap;box-shadow:0 4px 16px rgba(230,49,82,.3);" onmouseover="this.style.background='#c01040'" onmouseout="this.style.background='var(--admin)'">💾 Enregistrer & Propager</button>
+          </div>
+          <div id="admin-url-status" style="margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;"></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════
+           SECTION : URL PERMANENTE — Guide d'hébergement
+           ══════════════════════════════════════════════════════════ -->
+      <div>
+        <div class="section-label" style="color:var(--admin);">🔗 URL Permanente — Accès multi-appareils & multi-utilisateurs</div>
+        <div id="permanent-url-section">
+
+          <!-- Bannière statut URL actuelle -->
+          <div id="purl-current-banner" style="background:rgba(0,153,204,.07);border:1px solid rgba(0,153,204,.3);border-radius:10px;padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:22px;">🌐</span>
+              <div>
+                <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;">URL de cet outil (session courante)</div>
+                <div id="purl-display" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);margin-top:4px;word-break:break-all;">—</div>
+              </div>
+            </div>
+            <button onclick="purlCopy()" id="purl-copy-btn" style="padding:8px 18px;border:none;border-radius:var(--radius);background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .18s;white-space:nowrap;box-shadow:0 2px 12px rgba(0,153,204,.3);">📋 Copier l'URL</button>
+          </div>
+
+          <!-- Alerte : fichier local = URL non permanente -->
+          <div id="purl-local-warning" style="display:none;background:rgba(212,144,10,.08);border:1px solid rgba(212,144,10,.35);border-radius:10px;padding:14px 18px;margin-bottom:14px;">
+            <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--yellow);margin-bottom:8px;">⚠ Fichier local détecté — URL non permanente</div>
+            <div style="font-size:12px;color:var(--text-dim);line-height:1.7;">
+              Ce fichier est ouvert depuis votre ordinateur (<code style="font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:3px;">file://…</code>). L'URL change à chaque appareil ou navigateur.
+              <br>Pour une URL <strong>fixe et partageable</strong>, hébergez ce fichier en ligne (voir options ci-dessous).
+            </div>
+          </div>
+
+          <!-- Étapes hébergement -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px;">
+
+            <!-- Option 1 : Netlify -->
+            <div style="background:var(--card);border:1.5px solid rgba(0,168,107,.3);border-radius:10px;padding:20px;position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#00a86b,#00c9a7);"></div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <span style="font-size:24px;">🚀</span>
+                <div>
+                  <div style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--green);">Option 1 — Netlify Drop</div>
+                  <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Gratuit · 2 minutes · Recommandé</div>
+                </div>
+              </div>
+              <ol style="font-size:12px;color:var(--text-dim);line-height:2;padding-left:18px;margin-bottom:14px;">
+                <li>Allez sur <a href="https://app.netlify.com/drop" target="_blank" style="color:var(--accent);font-family:var(--font-mono);">app.netlify.com/drop</a></li>
+                <li>Glissez-déposez ce fichier HTML</li>
+                <li>Créez un compte gratuit (optionnel mais recommandé)</li>
+                <li>Personnalisez votre sous-domaine (ex: <code style="font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:3px;">telcoi-tool.netlify.app</code>)</li>
+              </ol>
+              <div style="background:rgba(0,168,107,.06);border:1px solid rgba(0,168,107,.2);border-radius:6px;padding:8px 12px;font-family:var(--font-mono);font-size:10px;color:var(--green);">
+                ✓ URL permanente · ✓ JS/CSS fonctionnel · ✓ Multi-navigateurs
+              </div>
+              <a href="https://app.netlify.com/drop" target="_blank" style="display:block;margin-top:12px;padding:9px;border-radius:var(--radius);background:var(--green);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:700;text-align:center;text-decoration:none;letter-spacing:.06em;transition:opacity .18s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">→ Ouvrir Netlify Drop</a>
+            </div>
+
+            <!-- Option 2 : GitHub Pages -->
+            <div style="background:var(--card);border:1.5px solid rgba(124,58,237,.25);border-radius:10px;padding:20px;position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--sup),#6d28d9);"></div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <span style="font-size:24px;">🐙</span>
+                <div>
+                  <div style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--sup);">Option 2 — GitHub Pages</div>
+                  <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Gratuit · Versioning · Professionnel</div>
+                </div>
+              </div>
+              <ol style="font-size:12px;color:var(--text-dim);line-height:2;padding-left:18px;margin-bottom:14px;">
+                <li>Créez un compte sur <a href="https://github.com" target="_blank" style="color:var(--accent);font-family:var(--font-mono);">github.com</a></li>
+                <li>Nouveau dépôt public (ex: <code style="font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:3px;">telcoi-tool</code>)</li>
+                <li>Uploadez ce fichier renommé en <code style="font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:3px;">index.html</code></li>
+                <li>Settings → Pages → Source → main branch</li>
+              </ol>
+              <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:6px;padding:8px 12px;font-family:var(--font-mono);font-size:10px;color:var(--sup);">
+                ✓ URL : votre-pseudo.github.io/telcoi-tool/ · Permanente à vie
+              </div>
+              <a href="https://github.com/new" target="_blank" style="display:block;margin-top:12px;padding:9px;border-radius:var(--radius);background:var(--sup);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:700;text-align:center;text-decoration:none;letter-spacing:.06em;transition:opacity .18s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">→ Créer un dépôt GitHub</a>
+            </div>
+
+          </div>
+
+          <!-- Info : JS/Google Sheets rest intact -->
+          <div style="background:rgba(0,153,204,.05);border:1px solid rgba(0,153,204,.2);border-radius:8px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:16px;margin-top:1px;">ℹ️</span>
+            <div style="font-size:12px;color:var(--text-dim);line-height:1.7;">
+              <strong style="color:var(--accent);">Aucune modification du code requise.</strong> Une fois hébergé, toutes les fonctions (connexion Google Sheets, synchronisation temps réel, multi-agents) continuent de fonctionner exactement comme maintenant. Seule l'URL change — de <code style="font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:3px;">file://…</code> vers <code style="font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:3px;">https://…</code>.
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Liste des agents -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="section-label" style="color:var(--admin);margin-bottom:0;">👥 Agents enregistrés (onglet Agents)</div>
+          <button class="toggle-btn" onclick="toggleSection('agents-list-wrap')">▲ Masquer</button>
+        </div>
+        <div id="agents-list-wrap">
+          <div class="admin-section-card">
+            <div class="agents-list" id="admin-agents-list">
+              <div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;">Chargement…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiques globales (même vue que superviseur) -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="section-label" style="color:var(--admin);margin-bottom:0;">📊 Statistiques globales</div>
+          <button class="toggle-btn" onclick="toggleSection('admin-stats-section')">▲ Masquer</button>
+        </div>
+        <div id="admin-stats-section">
+          <div class="stat-pills" style="margin-bottom:20px;">
+            <div class="stat-pill"><span class="stat-val" id="a-stat-total">0</span><span class="stat-lbl">Total traités</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:var(--green)" id="a-stat-valide">0</span><span class="stat-lbl">Validés</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:var(--accent2)" id="a-stat-rejete">0</span><span class="stat-lbl">Rejetés</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:var(--yellow)" id="a-stat-dmt">—</span><span class="stat-lbl">DMT Moyenne</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:#c084fc" id="a-stat-temps">—</span><span class="stat-lbl">Temps total</span></div>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-header">
+              <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--admin);text-transform:uppercase;letter-spacing:.1em;">Graphique — Performance par agent</span>
+              <button class="toggle-btn" onclick="toggleSection('admin-chart-wrap')">▲ Masquer</button>
+            </div>
+            <div id="admin-chart-wrap">
+              <div class="chart-container" id="admin-chart">
+                <div class="empty-state"><div class="icon">📊</div>Données insuffisantes.</div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-stats-grid" id="admin-agent-stats-grid">
+            <div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;grid-column:1/-1;">Aucune donnée.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historique complet -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="section-label" style="color:var(--admin);margin-bottom:0;">📁 Historique complet</div>
+          <button class="toggle-btn" onclick="toggleSection('admin-history-section')">▲ Masquer</button>
+        </div>
+        <div id="admin-history-section">
+          <div class="card">
+            <div class="agent-filter-bar">
+              <span class="agent-filter-label">👤 Agent</span>
+              <select class="agent-filter-select" id="admin-agent-filter" onchange="rebuildAdminHistory()">
+                <option value="">Tous les agents</option>
+              </select>
+              <button class="btn-export-csv" onclick="exportCSV('admin')">↗ Export CSV</button>
+              <button class="btn-delete-history" onclick="clearHistoryForRole()">🗑 Supprimer</button>
+            </div>
+            <div class="history-table-wrap">
+              <table id="admin-history-table">
+                <thead><tr><th>#</th><th>Agent</th><th>ID Activité</th><th>Boutique</th><th>Type</th><th>Zone</th><th>Statut</th><th>Motif rejet</th><th>Réception S2</th><th>Début</th><th>Fin</th><th>DMT</th></tr></thead>
+                <tbody id="admin-history-body"><tr><td colspan="12"><div class="empty-state"><div class="icon">📋</div>Aucun ticket.</div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!--  VUE SUPERVISEUR                            -->
+  <!-- ─────────────────────────────────────────── -->
+  <div id="view-superviseur" style="display:none;">
+    <div class="sections">
+
+      <!-- File BASE VDC -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="section-label" style="margin-bottom:0;">📋 File BASE VDC — Tickets à traiter</div>
+          <button class="toggle-btn" onclick="toggleSection('sup-queue-section')">▲ Masquer</button>
+        </div>
+        <div id="sup-queue-section">
+          <div class="queue-stats-row" style="margin-bottom:14px;">
+            <div class="queue-stat"><span class="queue-stat-val blue" id="aq-total">—</span><span class="queue-stat-lbl">Total tickets</span></div>
+            <div class="queue-stat"><span class="queue-stat-val orange" id="aq-remain">—</span><span class="queue-stat-lbl">Restants</span></div>
+            <div class="queue-stat"><span class="queue-stat-val red" id="aq-locked">—</span><span class="queue-stat-lbl">En cours</span></div>
+            <div class="queue-stat"><span class="queue-stat-val green" id="aq-done">—</span><span class="queue-stat-lbl">Traités</span></div>
+          </div>
+          <div class="card" style="margin-bottom:14px;">
+            <div class="card-header"><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--sup);text-transform:uppercase;letter-spacing:.1em;">Agents actuellement en cours</span></div>
+            <div class="card-body" style="padding:14px 20px;"><div class="agents-in-progress" id="agents-in-progress"><div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">Aucun agent en cours.</div></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--sup);text-transform:uppercase;letter-spacing:.1em;">File d'attente (tous les tickets BASE VDC)</span>
+              <button class="toggle-btn" onclick="toggleSection('queue-table-wrap')">▲ Masquer</button>
+            </div>
+            <div id="queue-table-wrap">
+              <div class="table-wrap">
+                <table id="queue-table"><thead><tr><th>#</th><th>Date Réception S2</th><th>ID Activité</th><th>Boutique</th><th>Verrouillé par</th><th>Récupéré le</th><th>Statut</th></tr></thead>
+                <tbody id="queue-body"><tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div>Aucun ticket dans BASE VDC.</div></td></tr></tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiques globales -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="section-label" style="margin-bottom:0;">📊 Statistiques globales — Tous agents</div>
+          <button class="toggle-btn" onclick="toggleSection('stats-section')">▲ Masquer</button>
+        </div>
+        <div id="stats-section">
+          <div class="stat-pills" style="margin-bottom:20px;">
+            <div class="stat-pill"><span class="stat-val" id="stat-total">0</span><span class="stat-lbl">Total VDC traités</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:var(--green)" id="stat-valide">0</span><span class="stat-lbl">Validés</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:var(--accent2)" id="stat-rejete">0</span><span class="stat-lbl">Rejetés</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:var(--yellow)" id="stat-dmt">—</span><span class="stat-lbl">DMT Moyenne</span></div>
+            <div class="stat-pill"><span class="stat-val" style="color:#c084fc" id="stat-temps">—</span><span class="stat-lbl">Temps total logué</span></div>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-header">
+              <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--sup);text-transform:uppercase;letter-spacing:.1em;">Graphique — Performance par agent</span>
+              <button class="toggle-btn" onclick="toggleSection('chart-wrap')">▲ Masquer</button>
+            </div>
+            <div id="chart-wrap"><div class="chart-container" id="sup-chart"><div class="empty-state"><div class="icon">📊</div>Le graphique apparaîtra dès que des données seront chargées.</div></div></div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div class="section-label">👤 Statistiques par agent</div>
+            <div class="agent-stats-grid" id="agent-stats-grid"><div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;grid-column:1/-1;">Aucune donnée.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historique global -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="section-label" style="margin-bottom:0;">📁 Historique global — Tous agents</div>
+          <button class="toggle-btn" onclick="toggleSection('history-section')">▲ Masquer</button>
+        </div>
+        <div id="history-section">
+          <div class="card">
+            <div class="agent-filter-bar">
+              <span class="agent-filter-label">👤 Agent</span>
+              <select class="agent-filter-select" id="agent-filter" onchange="rebuildHistoryTable()">
+                <option value="">Tous les agents</option>
+              </select>
+              <button class="btn-export-csv" onclick="exportCSV('sup')">↗ Export CSV</button>
+              <button class="btn-delete-history" onclick="clearHistoryForRole()">🗑 Supprimer</button>
+            </div>
+            <div class="history-table-wrap">
+              <table id="history-table"><thead><tr><th>#</th><th>Agent</th><th>ID Activité</th><th>Boutique</th><th>Type</th><th>Zone</th><th>Statut</th><th>Motif rejet</th><th>Réception S2</th><th>Début</th><th>Fin</th><th>DMT</th></tr></thead>
+              <tbody id="history-body"><tr><td colspan="12"><div class="empty-state"><div class="icon">📋</div>Aucun ticket enregistré.</div></td></tr></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!--  VUE UTILISATEUR — TRAITEMENT AGENT         -->
+  <!-- ─────────────────────────────────────────── -->
+  <div id="view-utilisateur" style="display:none;">
+    <div style="padding-top:24px;display:flex;flex-direction:column;gap:20px;">
+
+      <!-- ── FILE BASE VDC ── -->
+      <div style="background:linear-gradient(135deg,rgba(0,153,204,.05) 0%,rgba(0,168,107,.04) 100%);border:1px solid rgba(0,153,204,.25);border-radius:10px;padding:16px 20px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--green));"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;">📋 File BASE VDC — Tickets à traiter</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;">Cliquez sur "Get Next" pour récupérer et verrouiller automatiquement le prochain ticket</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;flex-direction:column;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 14px;min-width:80px;">
+              <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;line-height:1;color:var(--accent);" id="q-total">—</span>
+              <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;">Total</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 14px;min-width:80px;">
+              <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;line-height:1;color:var(--yellow);" id="q-remain">—</span>
+              <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;">Restants</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 14px;min-width:80px;">
+              <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;line-height:1;color:var(--green);" id="q-done">0</span>
+              <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;">Traités</span>
+            </div>
+          </div>
+          <button id="btn-get-next" onclick="getNextTicket()" style="padding:12px 28px;border:none;border-radius:var(--radius);background:linear-gradient(135deg,var(--accent),#007aaa);color:#fff;font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s;box-shadow:0 4px 18px rgba(0,153,204,.35);display:flex;align-items:center;gap:8px;white-space:nowrap;">
+            <span id="btn-get-next-spinner" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:vdcSpin .7s linear infinite;display:none;"></span>
+            <span>▶ Get Next</span>
+          </button>
+        </div>
+
+        <!-- Ticket en cours -->
+        <div id="current-ticket-container" style="display:none;">
+          <div id="current-ticket-card" style="background:var(--card);border:1.5px solid rgba(0,153,204,.3);border-radius:8px;padding:14px 18px;position:relative;overflow:hidden;animation:vdcTicketAppear .35s ease;">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--accent),var(--green));"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Ticket en cours de traitement</div>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <span style="font-family:var(--font-mono);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(0,168,107,.12);color:var(--green);border:1px solid rgba(0,168,107,.3);letter-spacing:.08em;">🔒 VERROUILLÉ · VOUS SEUL</span>
+                  <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="ct-timer-display"></span>
+                </div>
+              </div>
+              <button onclick="releaseCurrentTicket()" style="font-family:var(--font-mono);font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:3px 10px;border-radius:20px;cursor:pointer;transition:all .18s;" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↩ Libérer</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;">
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">📅 Date de réception S2</span>
+                <span id="ct-reception" style="font-family:var(--font-mono);font-size:13px;color:var(--accent);font-weight:700;padding:8px 12px;background:rgba(0,153,204,.06);border:1px solid rgba(0,153,204,.25);border-radius:4px;">—</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">🎫 ID Activité</span>
+                <span id="ct-id" style="font-family:var(--font-mono);font-size:15px;color:var(--text);font-weight:700;padding:8px 12px;background:rgba(0,153,204,.06);border:1px solid rgba(0,153,204,.25);border-radius:4px;letter-spacing:.04em;">—</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">🏪 Boutique</span>
+                <span id="ct-boutique" style="font-family:var(--font-mono);font-size:13px;color:var(--text);font-weight:600;padding:8px 12px;background:rgba(0,153,204,.06);border:1px solid rgba(0,153,204,.25);border-radius:4px;">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aucun ticket actif -->
+        <div id="no-ticket-hint" style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(0,0,0,.02);border-radius:6px;margin-top:12px;">
+          <span style="font-size:20px;opacity:.4;">📭</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">Aucun ticket actif — cliquez sur <strong>Get Next</strong> pour commencer</span>
+        </div>
+      </div>
+
+      <!-- ── LAYOUT 2 COLONNES : FORMULAIRE + HISTORIQUE ── -->
+      <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start;" id="agent-treatment-layout">
+
+        <!-- COLONNE GAUCHE : FORMULAIRE -->
+        <div>
+          <p style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--user);text-transform:uppercase;letter-spacing:.14em;margin-bottom:12px;display:flex;align-items:center;gap:8px;">▶ Nouveau traitement</p>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;box-shadow:var(--shadow);position:relative;overflow:hidden;">
+            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--user),transparent);"></div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Date de réception S2 <span style="color:var(--accent2)">*</span></label>
+                <input type="text" id="agent-date-reception" placeholder="Rempli automatiquement via Get Next…" autocomplete="off" readonly style="background:rgba(0,153,204,.04);border:1px solid rgba(0,153,204,.25);border-radius:var(--radius);color:var(--accent);font-family:var(--font-mono);font-size:13px;padding:10px 12px;width:100%;cursor:default;">
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Date début de traitement</label>
+                <input type="text" id="agent-date-debut" readonly placeholder="Automatique…" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:10px 12px;width:100%;">
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">ID Activités <span style="color:var(--accent2)">*</span></label>
+                <input type="text" id="agent-id-activites" placeholder="Rempli automatiquement via Get Next…" autocomplete="off" readonly style="background:rgba(0,153,204,.04);border:1px solid rgba(0,153,204,.25);border-radius:var(--radius);color:var(--accent);font-family:var(--font-mono);font-size:13px;padding:10px 12px;width:100%;cursor:default;">
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Type <span style="color:var(--accent2)">*</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;" id="agent-type-group">
+                  <label style="display:flex;align-items:center;cursor:pointer;"><input type="radio" name="agent-type" value="ABO" style="display:none;"><span class="agent-radio-pill">ABO</span></label>
+                  <label style="display:flex;align-items:center;cursor:pointer;"><input type="radio" name="agent-type" value="CARTE" style="display:none;"><span class="agent-radio-pill">CARTE</span></label>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Boutique</label>
+                <input type="text" id="agent-boutique" placeholder="Rempli automatiquement via Get Next…" autocomplete="off" readonly style="background:rgba(0,153,204,.04);border:1px solid rgba(0,153,204,.25);border-radius:var(--radius);color:var(--accent);font-family:var(--font-mono);font-size:13px;padding:10px 12px;width:100%;cursor:default;">
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Zone <span style="color:var(--accent2)">*</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;" id="agent-zone-group">
+                  <label style="display:flex;align-items:center;cursor:pointer;"><input type="radio" name="agent-zone" value="RUN" style="display:none;"><span class="agent-radio-pill">RUN</span></label>
+                  <label style="display:flex;align-items:center;cursor:pointer;"><input type="radio" name="agent-zone" value="MAY" style="display:none;"><span class="agent-radio-pill">MAY</span></label>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Statut <span style="color:var(--accent2)">*</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <label style="display:flex;align-items:center;cursor:pointer;"><input type="radio" name="agent-statut" value="VALIDE" id="agent-radio-valide" style="display:none;"><span class="agent-radio-pill agent-pill-valide">✓ VALIDÉ</span></label>
+                  <label style="display:flex;align-items:center;cursor:pointer;"><input type="radio" name="agent-statut" value="REJETE" id="agent-radio-rejete" style="display:none;"><span class="agent-radio-pill agent-pill-rejete">✗ REJETÉ</span></label>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;display:none;" id="agent-motif-group">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Motif de rejet</label>
+                <textarea id="agent-motif-rejet" placeholder="Coller ou saisir le motif de rejet…" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:10px 12px;width:100%;resize:vertical;min-height:72px;"></textarea>
+              </div>
+
+              <div style="height:1px;background:var(--border);"></div>
+
+              <button id="agent-btn-fin" disabled onclick="agentFinTraitement()" style="padding:14px;border:none;border-radius:var(--radius);background:var(--accent2);color:#fff;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;box-shadow:0 0 20px rgba(230,49,82,.3);display:flex;align-items:center;justify-content:center;gap:8px;opacity:.4;">
+                ⏹ FIN DU TRAITEMENT
+              </button>
+
+              <div style="height:1px;background:var(--border);"></div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">Date fin de traitement</label>
+                <input type="text" id="agent-date-fin" readonly placeholder="Après FIN…" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:10px 12px;width:100%;">
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;">DMT (Durée de traitement)</label>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--yellow);min-height:42px;display:flex;align-items:center;">
+                  <span id="agent-dmt-value">—</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- COLONNE DROITE : HISTORIQUE SESSION -->
+        <div>
+          <!-- Session banner -->
+          <div style="background:rgba(0,168,107,.06);border:1px solid rgba(0,168,107,.2);border-radius:8px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:11px;color:var(--green);">
+            <span>👤</span>
+            <span>Vous consultez uniquement votre historique de session.</span>
+          </div>
+
+          <!-- Compteur global tous agents -->
+          <div style="background:linear-gradient(135deg,rgba(0,153,204,.06) 0%,rgba(124,58,237,.05) 100%);border:1px solid rgba(0,153,204,.22);border-radius:10px;padding:14px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),#7c3aed);"></div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:22px;">🌐</span>
+              <div>
+                <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text);letter-spacing:.04em;">Total traités — Tous agents</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px;">Mis à jour en temps réel depuis Google Sheets</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:5px;">
+              <span id="agent-global-total" style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:var(--accent);line-height:1;">—</span>
+              <span style="font-family:var(--font-mono);font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.06em;">VDC</span>
+            </div>
+          </div>
+
+          <!-- Titre + filtre date -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <p style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin:0;display:flex;align-items:center;gap:8px;">▶ Historique de la session <span style="font-family:var(--font-mono);font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(0,153,204,.1);color:var(--accent);border:1px solid rgba(0,153,204,.25);letter-spacing:.06em;vertical-align:middle;">● TEMPS RÉEL</span></p>
+            <button class="toggle-btn" onclick="(function(){const w=document.getElementById('agent-history-wrap');const b=event.currentTarget;const h=w.style.display==='none';w.style.display=h?'':'none';b.textContent=h?'▲ Masquer':'▼ Afficher';})()">▲ Masquer</button>
+          </div>
+
+          <!-- Filtre date utilisateur -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;">🗓 Période</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;">
+              <input type="date" id="agent-filter-debut" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:5px 10px;transition:border-color .2s;">
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">→</span>
+              <input type="date" id="agent-filter-fin" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:5px 10px;transition:border-color .2s;">
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button onclick="applyAgentDateFilter()" style="padding:5px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;cursor:pointer;border:none;background:var(--user);color:#fff;transition:all .18s;text-transform:uppercase;">Filtrer</button>
+              <button onclick="resetAgentDateFilter()" style="padding:5px 12px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .18s;">✕ Tout</button>
+              <span id="agent-filter-badge" style="display:none;font-family:var(--font-mono);font-size:9px;font-weight:700;background:rgba(0,153,204,.12);color:var(--accent);border:1px solid rgba(0,153,204,.3);padding:2px 8px;border-radius:20px;letter-spacing:.06em;">FILTRE ACTIF</span>
+            </div>
+          </div>
+
+          <!-- Tableau session -->
+          <div id="agent-history-wrap">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);">
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);" id="agent-history-label">Votre session</span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span id="agent-session-count" style="font-family:var(--font-mono);font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:3px 10px;border-radius:20px;">0 ticket(s)</span>
+                  <button onclick="syncNow()" style="padding:7px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;cursor:pointer;border:1px solid rgba(0,153,204,.3);background:rgba(0,153,204,.06);color:var(--accent);transition:all .18s;display:flex;align-items:center;gap:5px;" onmouseover="this.style.background='rgba(0,153,204,.14)'" onmouseout="this.style.background='rgba(0,153,204,.06)'">↻ Sync</button>
+                  <button onclick="clearAgentSessionHistory()" style="padding:7px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;cursor:pointer;border:1px solid rgba(230,49,82,.3);background:rgba(230,49,82,.06);color:var(--accent2);transition:all .18s;display:flex;align-items:center;gap:5px;" onmouseover="this.style.background='rgba(230,49,82,.14)'" onmouseout="this.style.background='rgba(230,49,82,.06)'">🗑 Supprimer</button>
+                  <button onclick="exportAgentCSV()" style="padding:7px 16px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.06em;cursor:pointer;border:none;background:var(--green);color:var(--bg);box-shadow:0 0 16px rgba(0,168,107,.25);transition:all .2s;text-transform:uppercase;">↗ Exporter CSV</button>
+                </div>
+              </div>
+              <div style="overflow:auto;max-height:480px;">
+                <table style="width:100%;border-collapse:collapse;">
+                  <thead>
+                    <tr>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">#</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Agent</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">ID Activité</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Boutique</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Type</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Zone</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Statut</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Motif rejet</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Réception S2</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Début</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">Fin</th>
+                      <th style="background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 14px;text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);">DMT</th>
+                    </tr>
+                  </thead>
+                  <tbody id="agent-history-body">
+                    <tr><td colspan="12"><div style="padding:40px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:12px;"><div style="font-size:32px;margin-bottom:12px;opacity:.4;">📋</div>Aucun ticket dans cette session.</div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /agent-treatment-layout -->
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let SHEET_URL       = localStorage.getItem('vdc_sheet_url') || '';
+let currentRole     = localStorage.getItem('vdc_last_role') || 'superviseur';
+let currentUser     = '';
+let tickets         = [];
+let queueData       = [];
+let agentsList      = [];
+let filterStart     = null;
+let filterEnd       = null;
+let autoRefreshInterval = null;
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+(function init() {
+  // Restore last role (default: superviseur)
+  selectRole(currentRole, true);
+
+  // Enter key handlers
+  ['login-username','login-pwd'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  });
+  document.getElementById('login-agent-select').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('login-agent-select').addEventListener('change', function() {
+    document.getElementById('login-error').classList.remove('visible');
+  });
+
+  // When ADMIN fills in a URL, save it immediately
+  const urlInput = document.getElementById('login-sheet-url');
+  if (urlInput) {
+    // Restore saved URL into admin field
+    const savedUrl = localStorage.getItem('vdc_sheet_url') || '';
+    if (savedUrl) urlInput.value = savedUrl;
+    urlInput.addEventListener('blur', function() {
+      const u = this.value.trim();
+      if (u && u.startsWith('https://script.google.com')) {
+        SHEET_URL = u;
+        localStorage.setItem('vdc_sheet_url', u);
+      }
+    });
+  }
+})();
+
+// ═══════════════════════════════════════════════
+//  ROLE SELECTION
+// ═══════════════════════════════════════════════
+function selectRole(role, silent) {
+  currentRole = role;
+  if (!silent) localStorage.setItem('vdc_last_role', role);
+
+  // Reset all buttons
+  document.getElementById('role-admin-btn').className = 'role-btn';
+  document.getElementById('role-sup-btn').className   = 'role-btn';
+  document.getElementById('role-user-btn').className  = 'role-btn';
+
+  // Activate selected
+  if (role === 'admin')       document.getElementById('role-admin-btn').className = 'role-btn active-admin';
+  if (role === 'superviseur') document.getElementById('role-sup-btn').className   = 'role-btn active-sup';
+  if (role === 'utilisateur') document.getElementById('role-user-btn').className  = 'role-btn active-user';
+
+  const urlField   = document.getElementById('login-url-field');
+  const urlDivider = document.getElementById('login-url-divider');
+  const nameField  = document.getElementById('login-name-field');
+  const agentField = document.getElementById('login-agent-field');
+  const pwdField   = document.getElementById('login-pwd-field');
+  const btn        = document.getElementById('btn-login-confirm');
+  const nameLabel  = document.getElementById('login-name-label');
+
+  if (role === 'utilisateur') {
+    // ── UTILISATEUR : sélection dans liste, pas de mot de passe, pas d'URL
+    urlField.style.display   = 'none';
+    urlDivider.style.display = 'none';
+    nameField.style.display  = 'none';
+    agentField.style.display = '';
+    pwdField.style.display   = 'none';
+    btn.className   = 'btn-login user-btn';
+    btn.textContent = 'Accéder à mon espace →';
+    // Charger la liste depuis l'URL déjà enregistrée
+    const savedUrl = SHEET_URL || localStorage.getItem('vdc_sheet_url') || '';
+    if (savedUrl && savedUrl.startsWith('https://script.google.com')) {
+      SHEET_URL = savedUrl; // s'assurer que SHEET_URL est bien renseigné
+      loadAgentsForLogin(savedUrl);
+    } else {
+      document.getElementById('login-hint-text').textContent = 'URL non configurée — contactez l\'admin.';
+      document.getElementById('login-agent-select').innerHTML = '<option value="">— URL non configurée —</option>';
+    }
+
+  } else if (role === 'admin') {
+    // ── ADMIN : identifiant + mot de passe uniquement (URL gérée depuis le panneau Admin)
+    urlField.style.display   = 'none';
+    urlDivider.style.display = 'none';
+    nameField.style.display  = '';
+    agentField.style.display = 'none';
+    pwdField.style.display   = '';
+    btn.className   = 'btn-login admin-btn';
+    nameLabel.textContent = 'Identifiant Admin';
+    btn.textContent = 'Accéder au panneau Admin →';
+
+  } else {
+    // ── SUPERVISEUR : identifiant + mot de passe, pas d'URL
+    urlField.style.display   = 'none';
+    urlDivider.style.display = 'none';
+    nameField.style.display  = '';
+    agentField.style.display = 'none';
+    pwdField.style.display   = '';
+    btn.className   = 'btn-login';
+    nameLabel.textContent = 'Identifiant Superviseur';
+    btn.textContent = 'Accéder au tableau de bord →';
+  }
+}
+
+// ── Charge la liste des agents depuis Sheets (pour le rôle UTILISATEUR)
+async function loadAgentsForLogin(url) {
+  const sel      = document.getElementById('login-agent-select');
+  const hintEl   = document.getElementById('login-hint-text');
+  sel.innerHTML  = '<option value="">Chargement…</option>';
+  if (hintEl) hintEl.textContent = 'Chargement des agents…';
+  try {
+    const res  = await fetch(url + '?action=getAgents');
+    const data = await res.json();
+    const agents = data.agents || [];
+    sel.innerHTML = '<option value="">— Sélectionner mon nom —</option>';
+    agents.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name.trim(); opt.textContent = name.trim();
+      sel.appendChild(opt);
+    });
+    agentsList = agents;
+    if (hintEl) hintEl.textContent = agents.length > 0
+      ? `${agents.length} agents chargés depuis Sheets.`
+      : 'Aucun agent trouvé dans l\'onglet "Agents".';
+  } catch(e) {
+    sel.innerHTML = '<option value="">Impossible de charger la liste</option>';
+    if (hintEl) hintEl.textContent = 'Sheets non joignable — contactez l\'admin.';
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  LOGIN  (logique unifiée IZY TOOL V4 + VDC CENTRAL)
+// ═══════════════════════════════════════════════
+async function doLogin() {
+  const errEl  = document.getElementById('login-error');
+  const loadEl = document.getElementById('login-loading');
+  const btnEl  = document.getElementById('btn-login-confirm');
+  errEl.classList.remove('visible');
+
+  // ── UTILISATEUR : connexion directe par sélection de nom (comme IZY TOOL V4 pour les agents)
+  if (currentRole === 'utilisateur') {
+    const sel      = document.getElementById('login-agent-select');
+    const username = sel ? sel.value.trim() : '';
+
+    // Si la liste n'est pas encore chargée (option "Chargement…"), réessayer
+    if (sel && sel.options.length <= 1 && SHEET_URL) {
+      errEl.textContent = 'Liste en cours de chargement, veuillez patienter…';
+      errEl.classList.add('visible');
+      loadAgentsForLogin(SHEET_URL);
+      return;
+    }
+
+    if (!SHEET_URL) {
+      errEl.textContent = 'URL non configurée. Contactez votre administrateur.';
+      errEl.classList.add('visible'); return;
+    }
+    if (!username) {
+      errEl.textContent = 'Sélectionnez votre nom dans la liste.';
+      errEl.classList.add('visible'); return;
+    }
+    enterApp(username);
+    return;
+  }
+
+  // ── ADMIN / SUPERVISEUR : authentification avec identifiant + mot de passe
+  // Pour ADMIN : utiliser l'URL déjà enregistrée dans localStorage
+  if (currentRole === 'admin') {
+    const savedUrl = localStorage.getItem('vdc_sheet_url') || '';
+    if (!savedUrl || !savedUrl.startsWith('https://script.google.com')) {
+      // Première connexion admin sans URL — afficher une invite spéciale
+      errEl.innerHTML = '⚠ Aucune URL Apps Script configurée.<br><span style="font-size:11px;opacity:.85;">Connectez-vous avec un compte qui a déjà configuré l\'URL, ou configurez-la après votre première connexion via le panneau Admin.</span>';
+      errEl.classList.add('visible');
+      // Permettre la connexion quand même si SHEET_URL est défini en mémoire
+      if (!SHEET_URL) {
+        // Tenter de continuer sans URL (mode dégradé — sera configuré depuis le panneau)
+        SHEET_URL = '';
+      }
+    } else {
+      SHEET_URL = savedUrl;
+    }
+  } else {
+    // Superviseur / Utilisateur : URL doit être configurée par l'admin
+    if (!SHEET_URL) {
+      errEl.textContent = 'URL non configurée. Contactez votre administrateur.';
+      errEl.classList.add('visible'); return;
+    }
+  }
+
+  const username = document.getElementById('login-username').value.trim();
+  const pwd      = document.getElementById('login-pwd').value;
+  if (!username) { errEl.textContent = 'Entrez votre identifiant.'; errEl.classList.add('visible'); return; }
+  if (!pwd)      { errEl.textContent = 'Entrez votre mot de passe.'; errEl.classList.add('visible'); return; }
+
+  // Si admin sans URL, on le laisse entrer en mode config uniquement
+  if (currentRole === 'admin' && !SHEET_URL) {
+    // Mode dégradé : accès au panneau sans vérification Sheets
+    // L'admin devra configurer l'URL depuis son panneau
+    enterApp(username.trim() || 'Admin');
+    return;
+  }
+
+  loadEl.classList.add('visible');
+  btnEl.disabled = true;
+  document.getElementById('login-loading-text').textContent = 'Vérification en cours…';
+
+  let valid = false, resolvedName = '';
+  try {
+    const action = currentRole === 'admin' ? 'checkAdmin' : 'checkSupervisor';
+    const res  = await fetch(SHEET_URL + `?action=${action}&name=${encodeURIComponent(username)}&pwd=${encodeURIComponent(pwd)}`);
+    const data = await res.json();
+    valid        = data.valid === true;
+    resolvedName = data.adminName || data.supervisorName || data.name || username;
+  } catch(err) {
+    errEl.textContent = 'Impossible de contacter Google Sheets. Vérifiez l\'URL Apps Script.';
+    errEl.classList.add('visible');
+    loadEl.classList.remove('visible');
+    btnEl.disabled = false;
+    return;
+  }
+
+  loadEl.classList.remove('visible');
+  btnEl.disabled = false;
+
+  if (!valid) {
+    errEl.textContent = 'Identifiants incorrects. Vérifiez votre nom et mot de passe.';
+    errEl.classList.add('visible');
+    document.getElementById('login-pwd').value = '';
+    return;
+  }
+
+  enterApp(resolvedName || username);
+}
+
+// ═══════════════════════════════════════════════
+//  ENTER APP
+// ═══════════════════════════════════════════════
+function enterApp(name) {
+  // Sécurité : si le nom est vide, ne pas continuer
+  if (!name || !name.trim()) {
+    const errEl = document.getElementById('login-error');
+    if (errEl) { errEl.textContent = 'Nom introuvable. Sélectionnez votre nom dans la liste.'; errEl.classList.add('visible'); }
+    return;
+  }
+  currentUser = name.trim();
+
+  // Ensure SHEET_URL is set from localStorage if not already (for superviseur/utilisateur)
+  if (!SHEET_URL) SHEET_URL = localStorage.getItem('vdc_sheet_url') || '';
+
+  // Header
+  const roleLabels = { admin: 'ADMIN', superviseur: 'SUPERVISEUR', utilisateur: 'AGENT' };
+  const roleColors = { admin: '--admin', superviseur: '--sup', utilisateur: '--user' };
+  const roleTitles = { admin: 'Panneau Admin VDC', superviseur: 'Tableau de Bord Superviseur — VDC', utilisateur: `Espace Agent — ${name}` };
+
+  document.getElementById('login-overlay').style.display  = 'none';
+  document.getElementById('main-content').style.display   = 'block';
+  document.getElementById('global-date-bar').style.display = currentRole !== 'utilisateur' ? 'flex' : 'none';
+  document.getElementById('user-name-display').textContent = currentUser;
+  document.getElementById('role-badge-display').textContent = roleLabels[currentRole] || currentRole.toUpperCase();
+  document.getElementById('header-title').textContent = roleTitles[currentRole] || 'Tableau de Bord VDC';
+
+  // Show correct view
+  document.getElementById('view-admin').style.display       = currentRole === 'admin'       ? '' : 'none';
+  document.getElementById('view-superviseur').style.display  = currentRole === 'superviseur' ? '' : 'none';
+  document.getElementById('view-utilisateur').style.display  = currentRole === 'utilisateur' ? '' : 'none';
+
+  setSyncStatus('syncing', 'Connexion…');
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Start centralized URL polling for non-admin roles
+  if (currentRole !== 'admin') {
+    startUrlSyncPolling();
+  } else {
+    // Admin: populate URL field in their config panel
+    setTimeout(populateAdminUrlField, 100);
+  }
+
+  loadAll();
+  autoRefreshInterval = setInterval(loadAll, 20000);
+
+  const toastType = { admin: 'admin', superviseur: 'sup', utilisateur: 'user' }[currentRole] || '';
+  toast(`🔐 Bienvenue, ${name}`, toastType);
+}
+
+function doLogout() {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+//  CENTRALIZED URL SYNC (polling localStorage)
+// ═══════════════════════════════════════════════
+// Superviseur/Utilisateur poll every 10 seconds and auto-apply if URL changed.
+let _urlSyncInterval = null;
+let _lastKnownUrlTs  = localStorage.getItem('vdc_sheet_url_ts') || '0';
+function startUrlSyncPolling() {
+  if (_urlSyncInterval) return;
+  _urlSyncInterval = setInterval(() => {
+    const storedTs  = localStorage.getItem('vdc_sheet_url_ts') || '0';
+    const storedUrl = localStorage.getItem('vdc_sheet_url') || '';
+    if ((storedTs !== _lastKnownUrlTs || storedUrl !== SHEET_URL) &&
+        storedUrl && storedUrl.startsWith('https://script.google.com')) {
+      _lastKnownUrlTs = storedTs;
+      SHEET_URL = storedUrl;
+      setSyncStatus('syncing', 'Nouvelle URL détectée…');
+      toast('🔄 URL mise à jour par l\'administrateur — rechargement des données', 'sup');
+      loadAll().then(() => {
+        if (currentRole === 'utilisateur') {
+          loadQueueForAgent();
+          loadAgentGlobalCount();
+        }
+      });
+    }
+  }, 10000);
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN URL MANAGEMENT
+// ═══════════════════════════════════════════════
+function adminSaveUrl() {
+  const input = document.getElementById('admin-url-field');
+  const statusEl = document.getElementById('admin-url-status');
+  const banner = document.getElementById('admin-no-url-banner');
+  const url = input ? input.value.trim() : '';
+  if (!url || !url.startsWith('https://script.google.com')) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--accent2);">⚠ URL invalide — elle doit commencer par https://script.google.com</span>';
+    return;
+  }
+  const wasEmpty = !SHEET_URL;
+  SHEET_URL = url;
+  localStorage.setItem('vdc_sheet_url', url);
+  localStorage.setItem('vdc_sheet_url_ts', Date.now().toString());
+  if (banner) banner.style.display = 'none';
+  if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✓ URL enregistrée et propagée — ${new Date().toLocaleTimeString('fr-FR')}</span>`;
+  toast('✓ URL propagée à tous les utilisateurs', 'admin');
+  loadAll();
+  if (wasEmpty) toast('🟢 Connexion Google Sheets établie — données en cours de chargement', 'success');
+}
+
+function populateAdminUrlField() {
+  const input = document.getElementById('admin-url-field');
+  const banner = document.getElementById('admin-no-url-banner');
+  if (!SHEET_URL) {
+    if (banner) banner.style.display = 'block';
+    if (input) input.focus();
+  } else {
+    if (banner) banner.style.display = 'none';
+    if (input) {
+      input.value = SHEET_URL;
+      const statusEl = document.getElementById('admin-url-status');
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--muted);">URL active : <strong>${SHEET_URL.slice(0,55)}…</strong></span>`;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  CLEAR HISTORY
+// ═══════════════════════════════════════════════
+function clearHistoryForRole() {
+  const roleLabel = currentRole === 'admin' ? 'Admin' : 'Superviseur';
+  if (!confirm(`Supprimer tout l'historique affiché (${roleLabel}) ?\n\nCette action efface l'affichage local uniquement. Les données Google Sheets ne sont pas supprimées.`)) return;
+  tickets = [];
+  rebuildAll();
+  toast('🗑 Historique effacé', 'admin');
+}
+
+function clearAgentSessionHistory() {
+  if (!confirm('Supprimer l\'historique de votre session ?\n\nLes tickets déjà synchronisés dans Google Sheets restent enregistrés.')) return;
+  agentSessionTickets = [];
+  agentDoneCount = 0;
+  const tbody = document.getElementById('agent-history-body');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="12"><div style="padding:40px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:12px;"><div style="font-size:32px;margin-bottom:12px;opacity:.4;">📋</div>Aucun ticket dans cette session.</div></td></tr>';
+  const countEl = document.getElementById('agent-session-count');
+  if (countEl) countEl.textContent = '0 ticket(s)';
+  updateUserStats();
+  toast('🗑 Historique de session effacé', 'user');
+}
+
+// ═══════════════════════════════════════════════
+//  LOAD ALL
+// ═══════════════════════════════════════════════
+async function loadAll() {
+  if (!SHEET_URL) return;
+  setSyncStatus('syncing', 'Chargement…');
+  try {
+    const promises = [loadTickets()];
+    if (currentRole !== 'utilisateur') promises.push(loadQueue());
+    if (currentRole === 'admin') promises.push(loadAgents());
+    await Promise.all(promises);
+    setSyncStatus('ok', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR'));
+  } catch(err) {
+    setSyncStatus('error', 'Erreur de sync');
+  }
+}
+
+async function syncNow() {
+  toast('↻ Synchronisation en cours…', '');
+  await loadAll();
+  toast('✓ Données mises à jour', 'success');
+}
+
+async function loadQueue() {
+  const res  = await fetch(SHEET_URL + '?action=getQueue');
+  const data = await res.json();
+  if (data.queue) {
+    queueData = data.queue;
+    renderQueueStats(queueData);
+    renderQueueTable(queueData);
+  }
+}
+
+async function loadTickets() {
+  const res  = await fetch(SHEET_URL + '?action=getTickets');
+  const data = await res.json();
+  if (data.tickets && Array.isArray(data.tickets)) {
+    tickets = data.tickets;
+    rebuildAll();
+  }
+}
+
+async function loadAgents() {
+  const res  = await fetch(SHEET_URL + '?action=getAgents');
+  const data = await res.json();
+  if (data.agents) {
+    agentsList = data.agents;
+    renderAdminAgentsList(agentsList);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  REBUILD ALL VIEWS
+// ═══════════════════════════════════════════════
+function rebuildAll() {
+  if (currentRole === 'superviseur' || currentRole === 'admin') {
+    updateGlobalStats();
+    rebuildHistoryTable();
+    renderChart('sup-chart');
+    populateAgentFilter();
+  }
+  if (currentRole === 'admin') {
+    updateAdminStats();
+    rebuildAdminHistory();
+    renderChart('admin-chart', true);
+    populateAdminAgentFilter();
+  }
+  if (currentRole === 'utilisateur') {
+    updateUserStats();
+    renderUserTickets();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  DATE FILTER
+// ═══════════════════════════════════════════════
+function applyGlobalFilter() {
+  const ds = document.getElementById('filter-start').value;
+  const de = document.getElementById('filter-end').value;
+  if (!ds && !de) { toast('Sélectionnez au moins une date', 'error'); return; }
+  filterStart = ds ? new Date(ds + 'T00:00:00') : null;
+  filterEnd   = de ? new Date(de + 'T23:59:59') : null;
+  document.getElementById('filter-badge').classList.add('visible');
+  rebuildAll();
+  toast('🗓 Filtre appliqué', 'success');
+}
+function resetGlobalFilter() {
+  filterStart = null; filterEnd = null;
+  document.getElementById('filter-start').value = '';
+  document.getElementById('filter-end').value   = '';
+  document.getElementById('filter-badge').classList.remove('visible');
+  rebuildAll();
+  toast('✕ Filtre retiré', '');
+}
+function getFilteredTickets(agentName) {
+  let src = tickets;
+  if (filterStart || filterEnd) {
+    src = src.filter(t => {
+      const d = parseTicketDate(t);
+      if (!d) return true;
+      if (filterStart && d < filterStart) return false;
+      if (filterEnd   && d > filterEnd)   return false;
+      return true;
+    });
+  }
+  if (agentName) src = src.filter(t => t.agent === agentName);
+  return src;
+}
+function parseTicketDate(t) {
+  const raw = t.finTraitement || t.debutTraitement || t.receptionS2 || '';
+  const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return new Date(`${m[3]}-${m[2]}-${m[1]}`);
+  if (t.ts) return new Date(t.ts);
+  return null;
+}
+
+// ═══════════════════════════════════════════════
+//  QUEUE (Superviseur)
+// ═══════════════════════════════════════════════
+function renderQueueStats(queue) {
+  const total  = queue.length;
+  const locked = queue.filter(t => t.lockedBy && !t.isDone).length;
+  const done   = queue.filter(t => t.isDone).length;
+  const remain = Math.max(0, total - done - locked);
+  document.getElementById('aq-total').textContent  = total;
+  document.getElementById('aq-remain').textContent = remain;
+  document.getElementById('aq-locked').textContent = locked;
+  document.getElementById('aq-done').textContent   = done;
+  const inProgress = queue.filter(t => t.lockedBy && !t.isDone);
+  const container  = document.getElementById('agents-in-progress');
+  if (!inProgress.length) {
+    container.innerHTML = '<div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">Aucun agent en cours.</div>';
+  } else {
+    container.innerHTML = inProgress.map(t => `
+      <div class="agent-row">
+        <span class="agent-row-name">👤 ${t.lockedBy}</span>
+        <span class="agent-row-ticket">${t.idActivite}</span>
+        <span class="agent-row-time">${t.lockedAt || ''}</span>
+        <span class="badge-locked">EN COURS</span>
+      </div>`).join('');
+  }
+}
+function renderQueueTable(queue) {
+  const tbody = document.getElementById('queue-body');
+  if (!queue.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div>Aucun ticket dans BASE VDC.</div></td></tr>'; return; }
+  tbody.innerHTML = '';
+  queue.forEach((t, i) => {
+    const tr = document.createElement('tr');
+    const statusBadge = t.isDone ? `<span class="badge-done">TRAITÉ</span>` : t.lockedBy ? `<span class="badge-locked">🔒 VERROUILLÉ</span>` : `<span class="badge-available">DISPONIBLE</span>`;
+    tr.innerHTML = `<td style="color:var(--muted);font-family:var(--font-mono);font-size:11px;">${i+1}</td><td style="font-family:var(--font-mono);font-size:11px;">${t.receptionS2||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.lockedBy ? `<span style="font-family:var(--font-mono);font-size:11px;font-weight:600;">${t.lockedBy}</span>` : '<span style="color:var(--muted)">—</span>'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--muted);">${t.lockedAt||'—'}</td><td>${statusBadge}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  SUPERVISEUR STATS & HISTORY
+// ═══════════════════════════════════════════════
+function updateGlobalStats() {
+  const src     = getFilteredTickets();
+  const total   = src.length;
+  const valides = src.filter(t => t.statut === 'VALIDE').length;
+  const rejetes = src.filter(t => t.statut === 'REJETE').length;
+  const dmts    = src.filter(t => t.dmtMs).map(t => t.dmtMs);
+  const avgMs   = dmts.length ? Math.floor(dmts.reduce((a,b)=>a+b,0)/dmts.length) : 0;
+  const totalMs = dmts.reduce((a,b)=>a+b, 0);
+  document.getElementById('stat-total').textContent  = total;
+  document.getElementById('stat-valide').textContent = valides;
+  document.getElementById('stat-rejete').textContent = rejetes;
+  document.getElementById('stat-dmt').textContent    = avgMs > 0   ? fmtMs(avgMs)   : '—';
+  document.getElementById('stat-temps').textContent  = totalMs > 0 ? fmtMs(totalMs) : '—';
+  updateAgentStatsGrid(src, 'agent-stats-grid');
+}
+function updateAgentStatsGrid(src, gridId) {
+  const grid = document.getElementById(gridId);
+  if (!src || !src.length) { grid.innerHTML = '<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;grid-column:1/-1;">Aucune donnée.</div>'; return; }
+  const byAgent = {};
+  src.forEach(t => {
+    const name = t.agent || '—';
+    if (!byAgent[name]) byAgent[name] = { total: 0, valide: 0, rejete: 0, dmts: [] };
+    byAgent[name].total++;
+    if (t.statut === 'VALIDE') byAgent[name].valide++;
+    if (t.statut === 'REJETE') byAgent[name].rejete++;
+    if (t.dmtMs) byAgent[name].dmts.push(t.dmtMs);
+  });
+  grid.innerHTML = Object.entries(byAgent).sort((a,b) => b[1].total - a[1].total).map(([name, s]) => {
+    const avgMs = s.dmts.length ? Math.floor(s.dmts.reduce((a,b)=>a+b,0)/s.dmts.length) : 0;
+    const totalMs = s.dmts.reduce((a,b)=>a+b, 0);
+    const pct = s.total > 0 ? Math.round((s.valide / s.total) * 100) : 0;
+    return `<div class="agent-stat-card"><div class="agent-stat-name">👤 ${name}</div>
+      <div class="agent-stat-row"><span class="lbl">Total traités</span><span class="val">${s.total}</span></div>
+      <div class="agent-stat-row"><span class="lbl">Validés</span><span class="val green">${s.valide}</span></div>
+      <div class="agent-stat-row"><span class="lbl">Rejetés</span><span class="val red">${s.rejete}</span></div>
+      <div class="agent-stat-row"><span class="lbl">Taux validation</span><span class="val">${pct}%</span></div>
+      <div class="agent-stat-row"><span class="lbl">DMT moyenne</span><span class="val yellow">${avgMs > 0 ? fmtMs(avgMs) : '—'}</span></div>
+      <div class="agent-stat-row"><span class="lbl">Temps total</span><span class="val" style="color:#c084fc">${totalMs > 0 ? fmtMs(totalMs) : '—'}</span></div>
+    </div>`;
+  }).join('');
+}
+function populateAgentFilter() {
+  const sel = document.getElementById('agent-filter');
+  const prev = sel.value;
+  const names = [...new Set(tickets.map(t => t.agent).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Tous les agents</option>';
+  names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+  if (prev && names.includes(prev)) sel.value = prev;
+}
+function rebuildHistoryTable() {
+  const tbody = document.getElementById('history-body');
+  const agentFilter = document.getElementById('agent-filter')?.value || '';
+  const src = getFilteredTickets(agentFilter || null);
+  if (!src.length) { tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="icon">📋</div>Aucun ticket.</div></td></tr>'; return; }
+  tbody.innerHTML = '';
+  [...src].reverse().forEach((t, i) => {
+    const tr = document.createElement('tr');
+    const sc = t.statut === 'VALIDE' ? 'var(--green)' : t.statut === 'REJETE' ? 'var(--accent2)' : 'var(--muted)';
+    tr.innerHTML = `<td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${src.length-i}</td><td style="font-weight:600;">${t.agent||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.type||'—'}</td><td>${t.zone||'—'}</td><td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${sc}">${t.statut||'—'}</span></td><td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.motifRejet||''}">${t.motifRejet||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.receptionS2||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.debutTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.finTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);font-weight:700;">${t.dmt||'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN STATS & HISTORY
+// ═══════════════════════════════════════════════
+function renderAdminAgentsList(agents) {
+  const el = document.getElementById('admin-agents-list');
+  if (!agents || !agents.length) { el.innerHTML = '<div style="color:var(--muted);font-family:var(--font-mono);font-size:11px;">Aucun agent dans l\'onglet "Agents".</div>'; return; }
+  el.innerHTML = agents.map(n => `<div class="agent-list-item">${n}</div>`).join('');
+}
+function updateAdminStats() {
+  const src     = getFilteredTickets();
+  const total   = src.length;
+  const valides = src.filter(t => t.statut === 'VALIDE').length;
+  const rejetes = src.filter(t => t.statut === 'REJETE').length;
+  const dmts    = src.filter(t => t.dmtMs).map(t => t.dmtMs);
+  const avgMs   = dmts.length ? Math.floor(dmts.reduce((a,b)=>a+b,0)/dmts.length) : 0;
+  const totalMs = dmts.reduce((a,b)=>a+b, 0);
+  document.getElementById('a-stat-total').textContent  = total;
+  document.getElementById('a-stat-valide').textContent = valides;
+  document.getElementById('a-stat-rejete').textContent = rejetes;
+  document.getElementById('a-stat-dmt').textContent    = avgMs > 0   ? fmtMs(avgMs)   : '—';
+  document.getElementById('a-stat-temps').textContent  = totalMs > 0 ? fmtMs(totalMs) : '—';
+  updateAgentStatsGrid(src, 'admin-agent-stats-grid');
+}
+function populateAdminAgentFilter() {
+  const sel  = document.getElementById('admin-agent-filter');
+  const prev = sel.value;
+  const names = [...new Set(tickets.map(t => t.agent).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Tous les agents</option>';
+  names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+  if (prev && names.includes(prev)) sel.value = prev;
+}
+function rebuildAdminHistory() {
+  const tbody = document.getElementById('admin-history-body');
+  const agentFilter = document.getElementById('admin-agent-filter')?.value || '';
+  const src = getFilteredTickets(agentFilter || null);
+  if (!src.length) { tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="icon">📋</div>Aucun ticket.</div></td></tr>'; return; }
+  tbody.innerHTML = '';
+  [...src].reverse().forEach((t, i) => {
+    const tr = document.createElement('tr');
+    const sc = t.statut === 'VALIDE' ? 'var(--green)' : t.statut === 'REJETE' ? 'var(--accent2)' : 'var(--muted)';
+    tr.innerHTML = `<td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${src.length-i}</td><td style="font-weight:600;">${t.agent||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.type||'—'}</td><td>${t.zone||'—'}</td><td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${sc}">${t.statut||'—'}</span></td><td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.motifRejet||''}">${t.motifRejet||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.receptionS2||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.debutTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.finTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);font-weight:700;">${t.dmt||'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  UTILISATEUR STATS & TICKETS
+// ═══════════════════════════════════════════════
+function updateUserStats() {
+  const myTickets = tickets.filter(t => t.agent === currentUser);
+  const total     = myTickets.length;
+  const valides   = myTickets.filter(t => t.statut === 'VALIDE').length;
+  const rejetes   = myTickets.filter(t => t.statut === 'REJETE').length;
+  const dmts      = myTickets.filter(t => t.dmtMs).map(t => t.dmtMs);
+  const avgMs     = dmts.length ? Math.floor(dmts.reduce((a,b)=>a+b,0)/dmts.length) : 0;
+  const taux      = total > 0 ? Math.round((valides / total) * 100) : 0;
+  document.getElementById('u-stat-total').textContent  = total;
+  document.getElementById('u-stat-valide').textContent = valides;
+  document.getElementById('u-stat-rejete').textContent = rejetes;
+  document.getElementById('u-stat-dmt').textContent    = avgMs > 0 ? fmtMs(avgMs) : '—';
+  document.getElementById('u-stat-taux').textContent   = total > 0 ? taux + '%' : '—';
+}
+function renderUserTickets() {
+  const container = document.getElementById('user-tickets-list');
+  const myTickets = [...tickets.filter(t => t.agent === currentUser)].reverse();
+  if (!myTickets.length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📋</div>Aucun ticket enregistré pour votre compte.</div>';
+    return;
+  }
+  const sc = (s) => s === 'VALIDE' ? 'var(--green)' : s === 'REJETE' ? 'var(--accent2)' : 'var(--muted)';
+  container.innerHTML = myTickets.map((t, i) => `
+    <div class="user-ticket-card">
+      <div class="ticket-header">
+        <span class="ticket-id">${t.idActivite || '—'}</span>
+        <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:${sc(t.statut)}">${t.statut || '—'}</span>
+      </div>
+      <div class="ticket-meta">
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Boutique</span><span class="ticket-meta-val">${t.boutique||'—'}</span></div>
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Type</span><span class="ticket-meta-val">${t.type||'—'}</span></div>
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Zone</span><span class="ticket-meta-val">${t.zone||'—'}</span></div>
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Réception S2</span><span class="ticket-meta-val">${t.receptionS2||'—'}</span></div>
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Début</span><span class="ticket-meta-val">${t.debutTraitement||'—'}</span></div>
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Fin</span><span class="ticket-meta-val">${t.finTraitement||'—'}</span></div>
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">DMT</span><span class="ticket-meta-val" style="color:var(--yellow)">${t.dmt||'—'}</span></div>
+        ${t.motifRejet ? `<div class="ticket-meta-row"><span class="ticket-meta-lbl">Motif rejet</span><span class="ticket-meta-val" style="color:var(--accent2)">${t.motifRejet}</span></div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  CHART
+// ═══════════════════════════════════════════════
+function renderChart(containerId, isAdmin) {
+  const src = isAdmin ? getFilteredTickets() : getFilteredTickets();
+  const container = document.getElementById(containerId);
+  if (!src.length) { container.innerHTML = '<div class="empty-state"><div class="icon">📊</div>Données insuffisantes.</div>'; return; }
+  const byAgent = {};
+  src.forEach(t => {
+    const name = t.agent || '—';
+    if (!byAgent[name]) byAgent[name] = { total: 0, valide: 0, rejete: 0, dmts: [] };
+    byAgent[name].total++;
+    if (t.statut === 'VALIDE') byAgent[name].valide++;
+    if (t.statut === 'REJETE') byAgent[name].rejete++;
+    if (t.dmtMs) byAgent[name].dmts.push(t.dmtMs);
+  });
+  const agents  = Object.keys(byAgent).sort((a,b) => byAgent[b].total - byAgent[a].total);
+  const valides = agents.map(a => byAgent[a].valide);
+  const rejetes = agents.map(a => byAgent[a].rejete);
+  const totals  = agents.map(a => byAgent[a].total);
+  const avgDmts = agents.map(a => { const d = byAgent[a].dmts; return d.length ? Math.round(d.reduce((s,v)=>s+v,0)/d.length/1000) : 0; });
+  const tauxValid = agents.map(a => byAgent[a].total > 0 ? Math.round(byAgent[a].valide/byAgent[a].total*100) : 0);
+  const W = 800, H = 340, padL = 56, padR = 150, padT = 52, padB = 72;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const n = agents.length, gap = innerW / n;
+  const barW = Math.min(44, gap * 0.38);
+  const maxBars = Math.max(...totals, 1);
+  const maxDmt  = Math.max(...avgDmts, 1);
+  const barH = (v, max) => Math.max(2, (v / max) * innerH);
+  let bars = '';
+  agents.forEach((name, i) => {
+    const xBase = padL + gap * i + gap / 2;
+    const hV = barH(valides[i], maxBars), hR = barH(rejetes[i], maxBars);
+    bars += `<rect x="${xBase-barW-2}" y="${padT+innerH-hV}" width="${barW}" height="${hV}" fill="#00a86b" opacity="0.88" rx="3"/>`;
+    if (valides[i] > 0) bars += `<text x="${xBase-barW*0.5-2}" y="${padT+innerH-hV-5}" text-anchor="middle" font-size="10" fill="#00a86b" font-family="IBM Plex Mono,monospace">${valides[i]}</text>`;
+    bars += `<rect x="${xBase+2}" y="${padT+innerH-hR}" width="${barW}" height="${hR}" fill="#e63152" opacity="0.88" rx="3"/>`;
+    if (rejetes[i] > 0) bars += `<text x="${xBase+barW*0.5+2}" y="${padT+innerH-hR-5}" text-anchor="middle" font-size="10" fill="#e63152" font-family="IBM Plex Mono,monospace">${rejetes[i]}</text>`;
+    const shortName = name.length > 10 ? name.slice(0,9)+'…' : name;
+    bars += `<text x="${xBase}" y="${padT+innerH+16}" text-anchor="middle" font-size="10" fill="#6b7a99" font-family="IBM Plex Sans,sans-serif">${shortName}</text>`;
+    bars += `<text x="${xBase}" y="${padT+innerH+30}" text-anchor="middle" font-size="9" fill="#7c3aed" font-family="IBM Plex Mono,monospace">${tauxValid[i]}%</text>`;
+  });
+  let linePoints = '';
+  const dmtDots = agents.map((name, i) => {
+    const xPos = padL + gap * i + gap / 2;
+    const yPos = padT + innerH - barH(avgDmts[i], maxDmt);
+    linePoints += `${xPos},${yPos} `;
+    return { xPos, yPos, val: avgDmts[i] };
+  });
+  let dmtLine = '';
+  if (agents.length > 1) dmtLine = `<polyline points="${linePoints.trim()}" fill="none" stroke="#d4900a" stroke-width="2.5" stroke-linejoin="round" opacity="0.9"/>`;
+  const dmtDotsSvg = dmtDots.map(d => {
+    const fmt = d.val >= 60 ? `${Math.floor(d.val/60)}m${d.val%60}s` : `${d.val}s`;
+    return `<circle cx="${d.xPos}" cy="${d.yPos}" r="5" fill="#d4900a" stroke="#fff" stroke-width="1.5"/><text x="${d.xPos}" y="${d.yPos-9}" text-anchor="middle" font-size="9" fill="#d4900a" font-family="IBM Plex Mono,monospace">${fmt}</text>`;
+  }).join('');
+  let grid = '', dmtAxis = '';
+  for (let s = 0; s <= 5; s++) {
+    const y = padT + (innerH/5)*s;
+    grid += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#d0d5dd" stroke-width="1" stroke-dasharray="4,4"/>`;
+    grid += `<text x="${padL-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#6b7a99" font-family="IBM Plex Mono,monospace">${Math.round(maxBars-(maxBars/5)*s)}</text>`;
+    const dv = Math.round(maxDmt-(maxDmt/5)*s);
+    dmtAxis += `<text x="${W-padR+8}" y="${y+4}" text-anchor="start" font-size="9" fill="#d4900a" font-family="IBM Plex Mono,monospace">${dv>=60?`${Math.floor(dv/60)}m`:`${dv}s`}</text>`;
+  }
+  const legend = `<rect x="${W-padR+14}" y="${padT-4}" width="${padR-20}" height="72" rx="6" fill="white" stroke="#d0d5dd" stroke-width="1" opacity="0.85"/><rect x="${W-padR+22}" y="${padT+6}" width="10" height="10" fill="#00a86b" rx="2"/><text x="${W-padR+36}" y="${padT+15}" font-size="10" fill="#6b7a99" font-family="IBM Plex Sans,sans-serif">Validés</text><rect x="${W-padR+22}" y="${padT+24}" width="10" height="10" fill="#e63152" rx="2"/><text x="${W-padR+36}" y="${padT+33}" font-size="10" fill="#6b7a99" font-family="IBM Plex Sans,sans-serif">Rejetés</text><line x1="${W-padR+22}" y1="${padT+51}" x2="${W-padR+32}" y2="${padT+51}" stroke="#d4900a" stroke-width="2.5"/><circle cx="${W-padR+27}" cy="${padT+51}" r="4" fill="#d4900a"/><text x="${W-padR+36}" y="${padT+55}" font-size="10" fill="#6b7a99" font-family="IBM Plex Sans,sans-serif">DMT moy.</text>`;
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:${Math.min(W,n*100+160)}px;">${grid}${bars}${dmtLine}${dmtDotsSvg}${dmtAxis}${legend}<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+innerH}" stroke="#d0d5dd" stroke-width="1"/><line x1="${padL}" y1="${padT+innerH}" x2="${W-padR}" y2="${padT+innerH}" stroke="#d0d5dd" stroke-width="1"/></svg>`;
+}
+
+// ═══════════════════════════════════════════════
+//  CSV EXPORT
+// ═══════════════════════════════════════════════
+function exportCSV(mode) {
+  let src = tickets;
+  if (mode === 'user') src = tickets.filter(t => t.agent === currentUser);
+  else if (mode === 'admin') { const af = document.getElementById('admin-agent-filter')?.value; if (af) src = src.filter(t => t.agent === af); }
+  else { const af = document.getElementById('agent-filter')?.value; if (af) src = src.filter(t => t.agent === af); }
+  if (!src.length) { toast('Aucune donnée à exporter', 'error'); return; }
+  const headers = ['Agent','ID Activité','Boutique','Type','Client','Zone','Statut','Motif Rejet','Réception S2','Début Traitement','Fin Traitement','DMT'];
+  const rows = src.map(t => [t.agent,t.idActivite,t.boutique,t.type,t.client,t.zone,t.statut,t.motifRejet,t.receptionS2,t.debutTraitement,t.finTraitement,t.dmt].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(';'));
+  const csv = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `vdc_export_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('✓ Export CSV téléchargé', 'success');
+}
+
+// ═══════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════
+function fmtMs(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = n => String(n).padStart(2,'0');
+  if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
+  if (m > 0) return `${m}m ${pad(s)}s`;
+  return `${s}s`;
+}
+function setSyncStatus(state, text) {
+  const el = document.getElementById('sync-status');
+  el.className = 'sync-status ' + state;
+  document.getElementById('sync-text').textContent = text;
+}
+function updateClock() {
+  document.getElementById('live-clock').textContent = new Date().toLocaleTimeString('fr-FR');
+}
+function toast(msg, type) {
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' '+type : '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(),400); }, 3200);
+}
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? '' : 'none';
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes(id)) b.textContent = isHidden ? '▲ Masquer' : '▼ Afficher';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AGENT TREATMENT ENGINE  (ported from IZY TOOL V4)
+// ═══════════════════════════════════════════════════════════════
+let agentProcessingStarted  = false;
+let agentStartTime          = null;
+let agentSessionTickets     = [];
+let agentGlobalCount        = 0;
+let agentFilterStart        = null;
+let agentFilterEnd          = null;
+let agentCurrentQueueTicket = null;
+let agentQueueRefreshInterval = null;
+let agentDoneCount          = 0;
+let _agentElapsedInterval   = null;
+
+// ── Init: wire up radio events after DOM ready
+(function initAgentForm() {
+  // Statut radios → motif group
+  document.querySelectorAll('input[name="agent-statut"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const mg = document.getElementById('agent-motif-group');
+      if (r.value === 'REJETE' && r.checked) { mg.style.display = 'flex'; }
+      else { mg.style.display = 'none'; document.getElementById('agent-motif-rejet').value = ''; }
+    });
+  });
+})();
+
+// ── Called when enterApp sets role=utilisateur ──
+function setupAgentTreatmentView() {
+  document.getElementById('agent-history-label').textContent = 'Votre session — ' + currentUser;
+  if (SHEET_URL) {
+    loadQueueForAgent();
+    loadAgentGlobalCount();
+    agentQueueRefreshInterval = setInterval(() => { if (SHEET_URL) loadQueueForAgent(); }, 15000);
+    setInterval(() => { if (SHEET_URL) loadAgentGlobalCount(); }, 30000);
+  }
+}
+
+// ── Format date helper ──
+function agentFmtDate(d) {
+  if (!d) return '';
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// ── DMT calculation ──
+function agentCalcDMT(start, end) {
+  const ms = end - start;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = n => String(n).padStart(2,'0');
+  if (h > 0) return { str:`${h}h ${pad(m)}m ${pad(s)}s`, raw:ms };
+  if (m > 0) return { str:`${m}m ${pad(s)}s`, raw:ms };
+  return { str:`${s}s`, raw:ms };
+}
+
+// ── Elapsed timer in ticket card ──
+function agentStartElapsedTimer() {
+  if (_agentElapsedInterval) clearInterval(_agentElapsedInterval);
+  const ticketStart = Date.now();
+  function update() {
+    const sec = Math.floor((Date.now() - ticketStart) / 1000);
+    const mm = Math.floor(sec/60), ss = sec % 60;
+    const pad = n => String(n).padStart(2,'0');
+    const el = document.getElementById('ct-timer-display');
+    if (el) el.textContent = `⏱ ${mm>0?mm+'m ':''}${pad(ss)}s en cours`;
+  }
+  update();
+  _agentElapsedInterval = setInterval(update, 1000);
+}
+function agentStopElapsedTimer() {
+  if (_agentElapsedInterval) { clearInterval(_agentElapsedInterval); _agentElapsedInterval = null; }
+  const el = document.getElementById('ct-timer-display');
+  if (el) el.textContent = '';
+}
+
+// ── Load queue for agent view ──
+async function loadQueueForAgent() {
+  if (!SHEET_URL) return;
+  try {
+    const res  = await fetch(SHEET_URL + '?action=getQueue');
+    const data = await res.json();
+    if (!data.queue) return;
+    const q = data.queue;
+    const total  = q.length;
+    const locked = q.filter(t=>t.lockedBy&&!t.isDone).length;
+    const done   = q.filter(t=>t.isDone).length;
+    const remain = Math.max(0, total-done-locked);
+    const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+    setEl('q-total',  total);
+    setEl('q-remain', remain);
+    setEl('q-done',   agentDoneCount);
+  } catch(e) { /* silent */ }
+}
+
+// ── Get next ticket ──
+async function getNextTicket() {
+  if (!SHEET_URL) { toast('⚠ Connexion Sheets requise', 'error'); return; }
+  if (agentCurrentQueueTicket) { toast('⚠ Terminez d\'abord le ticket en cours', 'error'); return; }
+  const btn = document.getElementById('btn-get-next');
+  btn.disabled = true;
+  const spinner = document.getElementById('btn-get-next-spinner');
+  if (spinner) spinner.style.display = 'block';
+  try {
+    const res  = await fetch(SHEET_URL + `?action=lockNextTicket&agent=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    if (spinner) spinner.style.display = 'none';
+    if (data.status === 'none') {
+      toast('✅ Tous les tickets ont été traités !', 'success');
+      btn.disabled = false;
+      return;
+    }
+    if (data.status === 'ok' && data.ticket) {
+      agentCurrentQueueTicket = data.ticket;
+      agentDisplayCurrentTicket(data.ticket);
+      agentPrefillForm(data.ticket);
+      await loadQueueForAgent();
+      toast(`🔒 Ticket ${data.ticket.idActivite} récupéré et verrouillé`, 'success');
+    } else {
+      toast('⚠ Impossible de récupérer un ticket : ' + (data.message || 'erreur'), 'error');
+      btn.disabled = false;
+    }
+  } catch(err) {
+    if (spinner) spinner.style.display = 'none';
+    btn.disabled = false;
+    toast('⚠ Erreur de connexion Sheets', 'error');
+  }
+}
+
+// ── Display current ticket card ──
+function agentDisplayCurrentTicket(t) {
+  document.getElementById('no-ticket-hint').style.display   = 'none';
+  document.getElementById('current-ticket-container').style.display = 'block';
+  document.getElementById('ct-reception').textContent = t.receptionS2 || '—';
+  document.getElementById('ct-id').textContent        = t.idActivite  || '—';
+  document.getElementById('ct-boutique').textContent  = t.boutique    || '—';
+  agentStartElapsedTimer();
+}
+
+// ── Pre-fill form from queue ticket ──
+function agentPrefillForm(t) {
+  document.getElementById('agent-date-reception').value = t.receptionS2 || '';
+  document.getElementById('agent-id-activites').value   = t.idActivite  || '';
+  document.getElementById('agent-boutique').value       = t.boutique    || '';
+  agentStartTime = new Date();
+  document.getElementById('agent-date-debut').value = agentFmtDate(agentStartTime);
+  agentProcessingStarted = true;
+  const btn = document.getElementById('agent-btn-fin');
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+// ── Release current ticket ──
+async function releaseCurrentTicket() {
+  if (!agentCurrentQueueTicket) return;
+  if (!confirm('Libérer ce ticket sans le traiter ?\n\nIl redeviendra disponible pour les autres agents.')) return;
+  try {
+    await fetch(SHEET_URL + `?action=unlockTicket&idActivite=${encodeURIComponent(agentCurrentQueueTicket.idActivite)}&agent=${encodeURIComponent(currentUser)}`, { mode:'no-cors' });
+  } catch(e) {}
+  agentCurrentQueueTicket = null;
+  agentStopElapsedTimer();
+  document.getElementById('current-ticket-container').style.display = 'none';
+  document.getElementById('no-ticket-hint').style.display = 'flex';
+  document.getElementById('btn-get-next').disabled = false;
+  agentResetForm();
+  await loadQueueForAgent();
+  toast('↩ Ticket libéré et remis dans la file', '');
+}
+
+// ── FIN DU TRAITEMENT ──
+function agentFinTraitement() {
+  if (!agentProcessingStarted) { toast('⚠ Récupérez d\'abord un ticket via Get Next', 'error'); return; }
+  const statut = document.querySelector('input[name="agent-statut"]:checked');
+  if (!statut) { toast('⚠ Sélectionnez un statut (Validé / Rejeté)', 'error'); return; }
+
+  // Validation ZONE et TYPE obligatoires
+  const typeVal = document.querySelector('input[name="agent-type"]:checked');
+  const zoneVal = document.querySelector('input[name="agent-zone"]:checked');
+  let hasError = false;
+  const typeGroup = document.getElementById('agent-type-group');
+  const zoneGroup = document.getElementById('agent-zone-group');
+  if (!typeVal) {
+    hasError = true;
+    if (typeGroup) { typeGroup.style.outline = '2px solid var(--accent2)'; typeGroup.style.borderRadius = '4px'; typeGroup.style.padding = '4px'; setTimeout(() => { typeGroup.style.outline = ''; typeGroup.style.padding = ''; }, 2500); }
+    toast('⚠ Le champ TYPE est obligatoire', 'error');
+  }
+  if (!zoneVal) {
+    hasError = true;
+    if (zoneGroup) { zoneGroup.style.outline = '2px solid var(--accent2)'; zoneGroup.style.borderRadius = '4px'; zoneGroup.style.padding = '4px'; setTimeout(() => { zoneGroup.style.outline = ''; zoneGroup.style.padding = ''; }, 2500); }
+    if (!typeVal) toast('⚠ Le champ ZONE est également obligatoire', 'error');
+    else toast('⚠ Le champ ZONE est obligatoire', 'error');
+  }
+  if (hasError) return;
+
+  const endTime = new Date();
+  const dmt     = agentCalcDMT(agentStartTime, endTime);
+
+  document.getElementById('agent-date-fin').value = agentFmtDate(endTime);
+  document.getElementById('agent-dmt-value').textContent = dmt.str;
+
+  const ticket = {
+    agent:            currentUser,
+    idActivite:       document.getElementById('agent-id-activites').value.trim(),
+    boutique:         document.getElementById('agent-boutique').value.trim(),
+    type:             document.querySelector('input[name="agent-type"]:checked')?.value || '',
+    zone:             document.querySelector('input[name="agent-zone"]:checked')?.value || '',
+    statut:           statut.value,
+    motifRejet:       document.getElementById('agent-motif-rejet').value.trim(),
+    receptionS2:      document.getElementById('agent-date-reception').value,
+    debutTraitement:  document.getElementById('agent-date-debut').value,
+    finTraitement:    agentFmtDate(endTime),
+    dmt:              dmt.str,
+    dmtMs:            dmt.raw,
+    ts:               endTime.getTime()
+  };
+
+  agentSessionTickets.push(ticket);
+  agentAddRowToSessionTable(ticket, agentSessionTickets.length, true);
+
+  if (SHEET_URL) agentSyncToSheets(ticket);
+
+  // Mark queue ticket done
+  if (agentCurrentQueueTicket && SHEET_URL) {
+    fetch(SHEET_URL + `?action=markDone&idActivite=${encodeURIComponent(ticket.idActivite)}&agent=${encodeURIComponent(currentUser)}`, { mode:'no-cors' }).catch(()=>{});
+    agentDoneCount++;
+  }
+
+  agentCurrentQueueTicket = null;
+  agentStopElapsedTimer();
+  document.getElementById('current-ticket-container').style.display = 'none';
+  document.getElementById('no-ticket-hint').style.display = 'flex';
+  document.getElementById('btn-get-next').disabled = false;
+
+  toast('✅ Traitement terminé — Ticket enregistré', 'success');
+  const btn = document.getElementById('agent-btn-fin');
+  btn.disabled = true; btn.style.opacity = '.4';
+  agentProcessingStarted = false;
+
+  setTimeout(() => {
+    agentResetForm();
+    loadQueueForAgent();
+    agentGlobalCount++;
+    agentUpdateGlobalCounter();
+  }, 1500);
+}
+
+function agentResetForm() {
+  ['agent-date-reception','agent-date-debut','agent-date-fin','agent-id-activites','agent-boutique','agent-motif-rejet'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('agent-dmt-value').textContent = '—';
+  document.querySelectorAll('input[name="agent-type"], input[name="agent-zone"], input[name="agent-statut"]').forEach(r => r.checked = false);
+  document.getElementById('agent-motif-group').style.display = 'none';
+  agentStartTime = null;
+  agentProcessingStarted = false;
+  const btn = document.getElementById('agent-btn-fin');
+  if(btn){ btn.disabled=true; btn.style.opacity='.4'; }
+}
+
+// ── Add row to session history table ──
+function agentAddRowToSessionTable(t, idx, isNew) {
+  const tbody = document.getElementById('agent-history-body');
+  const empty = tbody.querySelector('td[colspan="12"]');
+  if (empty) empty.closest('tr').remove();
+  const sc = t.statut==='VALIDE'?'var(--green)':t.statut==='REJETE'?'var(--accent2)':'var(--muted)';
+  const tr = document.createElement('tr');
+  if (isNew) tr.classList.add('agent-new-row');
+  tr.innerHTML = `
+    <td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${idx}</td>
+    <td style="font-weight:600;">${t.agent||'—'}</td>
+    <td style="font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:600;">${t.idActivite||'—'}</td>
+    <td>${t.boutique||'—'}</td>
+    <td>${t.type||'—'}</td>
+    <td>${t.zone||'—'}</td>
+    <td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${sc}">${t.statut||'—'}</span></td>
+    <td style="font-size:11px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.motifRejet||''}">${t.motifRejet||'—'}</td>
+    <td style="font-family:var(--font-mono);font-size:10px;">${t.receptionS2||'—'}</td>
+    <td style="font-family:var(--font-mono);font-size:10px;">${t.debutTraitement||'—'}</td>
+    <td style="font-family:var(--font-mono);font-size:10px;">${t.finTraitement||'—'}</td>
+    <td style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);font-weight:700;">${t.dmt||'—'}</td>
+  `;
+  tbody.insertBefore(tr, tbody.firstChild);
+  const countEl = document.getElementById('agent-session-count');
+  if (countEl) countEl.textContent = `${agentSessionTickets.length} ticket(s)`;
+}
+
+// ── Rebuild session table (with optional date filter) ──
+function agentRebuildSessionTable() {
+  const tbody = document.getElementById('agent-history-body');
+  tbody.innerHTML = '';
+  const src = agentGetFilteredSessionTickets();
+  const countEl = document.getElementById('agent-session-count');
+  if (countEl) countEl.textContent = (agentFilterStart||agentFilterEnd)
+    ? `${src.length} / ${agentSessionTickets.length} ticket(s)` : `${agentSessionTickets.length} ticket(s)`;
+  if (!src.length) {
+    tbody.innerHTML = '<tr><td colspan="12"><div style="padding:40px;text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:12px;"><div style="font-size:32px;margin-bottom:12px;opacity:.4;">📋</div>Aucun ticket dans cette session.</div></td></tr>';
+    return;
+  }
+  [...src].reverse().forEach((t,i) => agentAddRowToSessionTable(t, src.length-i, false));
+}
+
+// ── Date filter helpers ──
+function agentGetFilteredSessionTickets() {
+  if (!agentFilterStart && !agentFilterEnd) return agentSessionTickets;
+  return agentSessionTickets.filter(t => {
+    const raw = t.finTraitement||t.debutTraitement||t.receptionS2||'';
+    const m   = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    const d   = m ? new Date(`${m[3]}-${m[2]}-${m[1]}`) : (t.ts ? new Date(t.ts) : null);
+    if (!d) return true;
+    if (agentFilterStart && d < agentFilterStart) return false;
+    if (agentFilterEnd   && d > agentFilterEnd)   return false;
+    return true;
+  });
+}
+
+function applyAgentDateFilter() {
+  const ds = document.getElementById('agent-filter-debut').value;
+  const de = document.getElementById('agent-filter-fin').value;
+  if (!ds && !de) { toast('Sélectionnez au moins une date', 'error'); return; }
+  agentFilterStart = ds ? new Date(ds+'T00:00:00') : null;
+  agentFilterEnd   = de ? new Date(de+'T23:59:59') : null;
+  document.getElementById('agent-filter-badge').style.display = 'inline-block';
+  agentRebuildSessionTable();
+  toast('🗓 Filtre appliqué', 'success');
+}
+
+function resetAgentDateFilter() {
+  agentFilterStart = null; agentFilterEnd = null;
+  document.getElementById('agent-filter-debut').value = '';
+  document.getElementById('agent-filter-fin').value   = '';
+  document.getElementById('agent-filter-badge').style.display = 'none';
+  agentRebuildSessionTable();
+  toast('✕ Filtre retiré', '');
+}
+
+// ── Load global ticket count ──
+async function loadAgentGlobalCount() {
+  if (!SHEET_URL) return;
+  try {
+    const res  = await fetch(SHEET_URL + '?action=getTickets');
+    const data = await res.json();
+    if (data.tickets && Array.isArray(data.tickets)) {
+      agentGlobalCount = data.tickets.length;
+      agentUpdateGlobalCounter();
+    }
+  } catch(e) {}
+}
+
+function agentUpdateGlobalCounter() {
+  const el = document.getElementById('agent-global-total');
+  if (!el) return;
+  const target  = agentGlobalCount;
+  const current = parseInt(el.textContent) || 0;
+  if (current === target) { el.textContent = target; return; }
+  let start = current;
+  const step = Math.max(1, Math.ceil(Math.abs(target-start)/20));
+  const iv = setInterval(() => {
+    start = start < target ? Math.min(start+step, target) : Math.max(start-step, target);
+    el.textContent = start;
+    if (start === target) clearInterval(iv);
+  }, 30);
+}
+
+// ── Sync ticket to Sheets (POST) ──
+async function agentSyncToSheets(ticket) {
+  setSyncStatus('syncing', 'Envoi…');
+  try {
+    await fetch(SHEET_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(ticket)
+    });
+    setSyncStatus('ok', 'Connecté · ' + new Date().toLocaleTimeString('fr-FR'));
+    toast('☁ Ticket envoyé vers Google Sheets', 'success');
+  } catch(err) {
+    setSyncStatus('error', 'Erreur d\'envoi');
+    toast('⚠ Erreur de synchronisation Sheets', 'error');
+  }
+}
+
+// ── CSV Export (session) ──
+function exportAgentCSV() {
+  const src = agentGetFilteredSessionTickets();
+  if (!src.length) { toast('Aucune donnée à exporter', 'error'); return; }
+  const headers = ['Agent','ID Activité','Boutique','Type','Zone','Statut','Motif Rejet','Réception S2','Début Traitement','Fin Traitement','DMT'];
+  const rows = src.map(t => [t.agent,t.idActivite,t.boutique,t.type,t.zone,t.statut,t.motifRejet,t.receptionS2,t.debutTraitement,t.finTraitement,t.dmt].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(';'));
+  const csv  = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `session_${currentUser}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('✓ Export CSV téléchargé', 'success');
+}
+
+// ═══════════════════════════════════════════════
+//  URL PERMANENTE — Affichage & copie
+// ═══════════════════════════════════════════════
+function purlInit() {
+  const url = window.location.href;
+  const display = document.getElementById('purl-display');
+  if (display) display.textContent = url;
+  const isLocal = url.startsWith('file://');
+  const warning = document.getElementById('purl-local-warning');
+  if (warning) warning.style.display = isLocal ? 'block' : 'none';
+  const banner = document.getElementById('purl-current-banner');
+  if (banner && isLocal) {
+    banner.style.borderColor = 'rgba(212,144,10,.35)';
+    banner.style.background  = 'rgba(212,144,10,.06)';
+  }
+}
+function purlCopy() {
+  const url = window.location.href;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById('purl-copy-btn');
+      if (btn) { btn.textContent = '✓ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier l\'URL'; }, 2000); }
+      toast('✓ URL copiée dans le presse-papiers', 'success');
+    }).catch(() => purlCopyFallback(url));
+  } else { purlCopyFallback(url); }
+}
+function purlCopyFallback(url) {
+  const ta = document.createElement('textarea');
+  ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast('✓ URL copiée', 'success'); } catch(e) { toast('⚠ Copie manuelle : ' + url, 'error'); }
+  document.body.removeChild(ta);
+}
+
+// ── Hook into enterApp to init agent view if role=utilisateur ──
+const _origEnterApp = enterApp;
+enterApp = function(name) {
+  if (!name || !name.trim()) {
+    const errEl = document.getElementById('login-error');
+    if (errEl) { errEl.textContent = 'Nom introuvable. Sélectionnez votre nom dans la liste.'; errEl.classList.add('visible'); }
+    return;
+  }
+  _origEnterApp(name.trim());
+  if (currentRole === 'utilisateur') {
+    setupAgentTreatmentView();
+  }
+  if (currentRole === 'admin') {
+    setTimeout(purlInit, 200);
+  }
+};
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     APPS SCRIPT — CODE À AJOUTER DANS VOTRE DÉPLOIEMENT EXISTANT
+     ══════════════════════════════════════════════════════════════
+
+Structure Google Sheet requise :
+─────────────────────────────────
+  Onglet "Config" :
+    A1 = "admin"       | B1 = [mot de passe admin]
+    A2 = [nom superviseur] | B2 = [mot de passe superviseur]
+
+  Onglet "Agents" :
+    Colonne A = liste des noms d'agents (un par ligne, sans en-tête)
+
+Actions Apps Script à ajouter :
+
+  // ─── checkAdmin ───
+  if (action === 'checkAdmin') {
+    const name = e.parameter.name || '';
+    const pwd  = e.parameter.pwd  || '';
+    const cfg  = ss.getSheetByName('Config');
+    if (!cfg) return json({ valid: false });
+    const storedName = String(cfg.getRange('A1').getValue()).trim();
+    const storedPwd  = String(cfg.getRange('B1').getValue()).trim();
+    const valid = (storedName === name.trim()) && (storedPwd === pwd.trim());
+    return json({ valid, adminName: storedName });
+  }
+
+  // ─── checkSupervisor ───
+  if (action === 'checkSupervisor') {
+    const name = e.parameter.name || '';
+    const pwd  = e.parameter.pwd  || '';
+    const cfg  = ss.getSheetByName('Config');
+    if (!cfg) return json({ valid: false });
+    const storedName = String(cfg.getRange('A2').getValue()).trim();
+    const storedPwd  = String(cfg.getRange('B2').getValue()).trim();
+    const valid = (storedName === name.trim()) && (storedPwd === pwd.trim());
+    return json({ valid, supervisorName: storedName });
+  }
+
+  // ─── getAgents ───
+  if (action === 'getAgents') {
+    const sheet = ss.getSheetByName('Agents');
+    if (!sheet) return json({ agents: [] });
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 1) return json({ agents: [] });
+    const values = sheet.getRange(1, 1, lastRow, 1).getValues();
+    const agents = values.map(r => String(r[0]).trim()).filter(n => n);
+    return json({ agents });
+  }
+
+══════════════════════════════════════════════════════════════ -->
+
+</body>
+</html>

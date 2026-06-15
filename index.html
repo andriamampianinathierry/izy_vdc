@@ -1575,6 +1575,24 @@ function renderQueueStats(queue) {
       </div>`).join('');
   }
 }
+
+function transformDate(dateString) {
+  const date = new Date(dateString);
+  
+  const options = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false // Force le format 24h
+  };
+  
+  const resultat = new Intl.DateTimeFormat('fr-FR', options).format(date);
+  return resultat; 
+}
+  
 function renderQueueTable(queue) {
   const tbody = document.getElementById('queue-body');
   if (!queue.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div>Aucun ticket dans BASE VDC.</div></td></tr>'; return; }
@@ -1582,7 +1600,7 @@ function renderQueueTable(queue) {
   queue.forEach((t, i) => {
     const tr = document.createElement('tr');
     const statusBadge = t.isDone ? `<span class="badge-done">TRAITÉ</span>` : t.lockedBy ? `<span class="badge-locked">🔒 VERROUILLÉ</span>` : `<span class="badge-available">DISPONIBLE</span>`;
-    tr.innerHTML = `<td style="color:var(--muted);font-family:var(--font-mono);font-size:11px;">${i+1}</td><td style="font-family:var(--font-mono);font-size:11px;">${t.receptionS2||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.lockedBy ? `<span style="font-family:var(--font-mono);font-size:11px;font-weight:600;">${t.lockedBy}</span>` : '<span style="color:var(--muted)">—</span>'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--muted);">${t.lockedAt||'—'}</td><td>${statusBadge}</td>`;
+    tr.innerHTML = `<td style="color:var(--muted);font-family:var(--font-mono);font-size:11px;">${i+1}</td><td style="font-family:var(--font-mono);font-size:11px;">${transformDate(t.receptionS2) ||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.lockedBy ? `<span style="font-family:var(--font-mono);font-size:11px;font-weight:600;">${t.lockedBy}</span>` : '<span style="color:var(--muted)">—</span>'}</td><td style="font-family:var(--font-mono);font-size:10px;color:var(--muted);">${t.lockedAt||'—'}</td><td>${statusBadge}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1648,7 +1666,7 @@ function rebuildHistoryTable() {
   [...src].reverse().forEach((t, i) => {
     const tr = document.createElement('tr');
     const sc = t.statut === 'VALIDE' ? 'var(--green)' : t.statut === 'REJETE' ? 'var(--accent2)' : 'var(--muted)';
-    tr.innerHTML = `<td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${src.length-i}</td><td style="font-weight:600;">${t.agent||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.type||'—'}</td><td>${t.zone||'—'}</td><td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${sc}">${t.statut||'—'}</span></td><td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.motifRejet||''}">${t.motifRejet||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.receptionS2||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.debutTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.finTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);font-weight:700;">${t.dmt||'—'}</td>`;
+    tr.innerHTML = `<td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${src.length-i}</td><td style="font-weight:600;">${t.agent||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.type||'—'}</td><td>${t.zone||'—'}</td><td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${sc}">${t.statut||'—'}</span></td><td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.motifRejet||''}">${t.motifRejet||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${transformDate(t.receptionS2) ||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.debutTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.finTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);font-weight:700;">${t.dmt||'—'}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1693,7 +1711,7 @@ function rebuildAdminHistory() {
   [...src].reverse().forEach((t, i) => {
     const tr = document.createElement('tr');
     const sc = t.statut === 'VALIDE' ? 'var(--green)' : t.statut === 'REJETE' ? 'var(--accent2)' : 'var(--muted)';
-    tr.innerHTML = `<td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${src.length-i}</td><td style="font-weight:600;">${t.agent||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.type||'—'}</td><td>${t.zone||'—'}</td><td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${sc}">${t.statut||'—'}</span></td><td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.motifRejet||''}">${t.motifRejet||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.receptionS2||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.debutTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.finTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);font-weight:700;">${t.dmt||'—'}</td>`;
+    tr.innerHTML = `<td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${src.length-i}</td><td style="font-weight:600;">${t.agent||'—'}</td><td class="id-cell">${t.idActivite||'—'}</td><td>${t.boutique||'—'}</td><td>${t.type||'—'}</td><td>${t.zone||'—'}</td><td><span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${sc}">${t.statut||'—'}</span></td><td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.motifRejet||''}">${t.motifRejet||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${transformDate(t.receptionS2)||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.debutTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:10px;">${t.finTraitement||'—'}</td><td style="font-family:var(--font-mono);font-size:11px;color:var(--yellow);font-weight:700;">${t.dmt||'—'}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1733,7 +1751,7 @@ function renderUserTickets() {
         <div class="ticket-meta-row"><span class="ticket-meta-lbl">Boutique</span><span class="ticket-meta-val">${t.boutique||'—'}</span></div>
         <div class="ticket-meta-row"><span class="ticket-meta-lbl">Type</span><span class="ticket-meta-val">${t.type||'—'}</span></div>
         <div class="ticket-meta-row"><span class="ticket-meta-lbl">Zone</span><span class="ticket-meta-val">${t.zone||'—'}</span></div>
-        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Réception S2</span><span class="ticket-meta-val">${t.receptionS2||'—'}</span></div>
+        <div class="ticket-meta-row"><span class="ticket-meta-lbl">Réception S2</span><span class="ticket-meta-val">${transformDate(t.receptionS2) ||'—'}</span></div>
         <div class="ticket-meta-row"><span class="ticket-meta-lbl">Début</span><span class="ticket-meta-val">${t.debutTraitement||'—'}</span></div>
         <div class="ticket-meta-row"><span class="ticket-meta-lbl">Fin</span><span class="ticket-meta-val">${t.finTraitement||'—'}</span></div>
         <div class="ticket-meta-row"><span class="ticket-meta-lbl">DMT</span><span class="ticket-meta-val" style="color:var(--yellow)">${t.dmt||'—'}</span></div>
@@ -2001,7 +2019,7 @@ async function getNextTicket() {
 function agentDisplayCurrentTicket(t) {
   document.getElementById('no-ticket-hint').style.display   = 'none';
   document.getElementById('current-ticket-container').style.display = 'block';
-  document.getElementById('ct-reception').textContent = t.receptionS2 || '—';
+  document.getElementById('ct-reception').textContent = transformDate(t.receptionS2) || '—';
   document.getElementById('ct-id').textContent        = t.idActivite  || '—';
   document.getElementById('ct-boutique').textContent  = t.boutique    || '—';
   agentStartElapsedTimer();
@@ -2009,7 +2027,7 @@ function agentDisplayCurrentTicket(t) {
 
 // ── Pre-fill form from queue ticket ──
 function agentPrefillForm(t) {
-  document.getElementById('agent-date-reception').value = t.receptionS2 || '';
+  document.getElementById('agent-date-reception').value = transformDate(t.receptionS2) || '';
   document.getElementById('agent-id-activites').value   = t.idActivite  || '';
   document.getElementById('agent-boutique').value       = t.boutique    || '';
   agentStartTime = new Date();
